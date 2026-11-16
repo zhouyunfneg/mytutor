@@ -1,0 +1,242 @@
+@import "tailwindcss";
+
+@theme {
+  --color-paper: #f7f2e9;
+  --color-paper-deep: #efe7d7;
+  --color-card: #fdfaf4;
+  --color-ink: #211d19;
+  --color-ink-soft: #57504a;
+  --color-ink-faint: #948b80;
+  --color-cinnabar: #c03a2b;
+  --color-cinnabar-deep: #9e2b1f;
+  --color-pine: #2f6d4f;
+  --color-line: #ddd2c0;
+  --color-night: #171310;
+  --color-night-soft: #241e18;
+  --font-display: "Noto Serif SC", "Source Han Serif SC", "STZhongsong", "SimSun", serif;
+  --font-body: "Noto Sans SC", "Source Han Sans SC", "PingFang SC", "Microsoft YaHei", sans-serif;
+  --font-mono: "Cascadia Code", "JetBrains Mono", Consolas, monospace;
+}
+
+html, body, #root {
+  height: 100%;
+}
+
+body {
+  font-family: var(--font-body);
+  color: var(--color-ink);
+  background-color: var(--color-paper);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2'/%3E%3CfeColorMatrix values='0 0 0 0 0.45 0 0 0 0 0.40 0 0 0 0 0.33 0 0 0 0.035 0'/%3E%3C/filter%3E%3Crect width='140' height='140' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
+::selection {
+  background: rgba(192, 58, 43, 0.18);
+}
+
+*::-webkit-scrollbar { width: 8px; height: 8px; }
+*::-webkit-scrollbar-thumb { background: #cfc3ae; border-radius: 4px; }
+*::-webkit-scrollbar-track { background: transparent; }
+
+.font-display { font-family: var(--font-display); }
+.font-mono { font-family: var(--font-mono); }
+
+/* 印章 logo */
+.seal {
+  background: var(--color-cinnabar);
+  color: #f7f2e9;
+  font-family: var(--font-display);
+  box-shadow: inset 0 0 0 2px rgba(247, 242, 233, 0.35), 0 1px 3px rgba(33, 29, 25, 0.25);
+  border-radius: 6px;
+}
+
+/* 入场动画 */
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.fade-up { animation: fadeUp 0.45s ease both; }
+.stagger > * { animation: fadeUp 0.45s ease both; }
+.stagger > *:nth-child(1) { animation-delay: 0.03s; }
+.stagger > *:nth-child(2) { animation-delay: 0.09s; }
+.stagger > *:nth-child(3) { animation-delay: 0.15s; }
+.stagger > *:nth-child(4) { animation-delay: 0.21s; }
+.stagger > *:nth-child(5) { animation-delay: 0.27s; }
+
+/* 步骤墨点 */
+.step-dot {
+  width: 9px; height: 9px; border-radius: 999px;
+  border: 1.5px solid var(--color-ink-faint);
+  background: transparent;
+  transition: all 0.25s ease;
+}
+.step-dot.active {
+  background: var(--color-cinnabar);
+  border-color: var(--color-cinnabar);
+  box-shadow: 0 0 0 3px rgba(192, 58, 43, 0.15);
+}
+.step-dot.done { background: var(--color-pine); border-color: var(--color-pine); }
+
+/* 纸卡片 */
+.paper-card {
+  background: var(--color-card);
+  border: 1px solid var(--color-line);
+  border-radius: 10px;
+  box-shadow: 0 1px 2px rgba(33, 29, 25, 0.04), 0 4px 14px rgba(33, 29, 25, 0.03);
+}
+
+/* 按钮 */
+.btn-ink {
+  background: var(--color-ink);
+  color: var(--color-paper);
+  border-radius: 8px;
+  transition: all 0.18s ease;
+}
+.btn-ink:hover { background: #3a332c; }
+.btn-ink:disabled { opacity: 0.45; cursor: not-allowed; }
+.btn-seal {
+  background: var(--color-cinnabar);
+  color: #fdfaf4;
+  border-radius: 8px;
+  transition: all 0.18s ease;
+}
+.btn-seal:hover { background: var(--color-cinnabar-deep); }
+.btn-seal:disabled { opacity: 0.45; cursor: not-allowed; }
+.btn-ghost {
+  border: 1px solid var(--color-line);
+  border-radius: 8px;
+  color: var(--color-ink-soft);
+  background: transparent;
+  transition: all 0.18s ease;
+}
+.btn-ghost:hover { border-color: var(--color-ink-faint); color: var(--color-ink); }
+
+input, select, textarea {
+  outline: none;
+}
+.field {
+  background: #fffdf8;
+  border: 1px solid var(--color-line);
+  border-radius: 8px;
+  padding: 8px 12px;
+  font-size: 14px;
+  transition: border-color 0.15s ease;
+}
+.field:focus { border-color: var(--color-cinnabar); }
+
+/* ============================================================
+   毛玻璃皮肤（html.theme-glass）
+   按 solid-glass 技能的四条材质规则手写，不用其默认高饱和色：
+   1. 质感在边缘：顶部光线 + 四周发丝线 + 底部聚拢投影，面不画渐变
+   2. 厚重不飘：近不透明的暖纸面，模糊只柔化背后光斑不放大颜色
+   3. 厚度即层次：侧栏(最薄) < 卡片 < 输入/浮层(最厚)
+   4. 单一状态：hover/选中同一片玻璃，只变透明度不变色相
+   配色全部取自现有宣纸色系的低饱和变体（陶土红/灰绿/ mist 蓝）。
+   ============================================================ */
+html.theme-glass {
+  --color-paper: #f1eee6;
+  --color-paper-deep: #e8e4d8;
+  --color-card: #fbf9f3;
+  --color-ink: #262219;
+  --color-ink-soft: #5c564e;
+  --color-ink-faint: #9a9287;
+  --color-cinnabar: #b3705f;
+  --color-cinnabar-deep: #9d5f50;
+  --color-pine: #6d8a77;
+  --color-line: #d6cfc2;
+}
+
+/* 背后的柔光：低饱和苔绿/暖沙/雾蓝，固定附着供玻璃柔化 */
+html.theme-glass body {
+  background-color: #eceae3;
+  background-image:
+    radial-gradient(900px 620px at 10% -10%, rgba(206, 216, 202, 0.9), transparent 62%),
+    radial-gradient(820px 560px at 104% 8%, rgba(228, 219, 200, 0.95), transparent 60%),
+    radial-gradient(1000px 720px at 50% 118%, rgba(205, 214, 219, 0.8), transparent 64%);
+  background-attachment: fixed;
+}
+
+html.theme-glass ::selection { background: rgba(179, 112, 95, 0.22); }
+html.theme-glass *::-webkit-scrollbar-thumb { background: #c9c2b4; }
+
+/* 卡片：中等厚度玻璃 */
+html.theme-glass .paper-card {
+  background: rgba(252, 250, 244, 0.62);
+  backdrop-filter: blur(22px) saturate(1.12);
+  -webkit-backdrop-filter: blur(22px) saturate(1.12);
+  border: 1px solid rgba(148, 139, 128, 0.28);
+  border-radius: 12px;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.8),
+    0 1px 2px rgba(70, 62, 50, 0.05),
+    0 12px 32px -14px rgba(70, 62, 50, 0.22);
+}
+
+/* 侧栏：最薄一层玻璃 */
+html.theme-glass aside {
+  background: rgba(244, 241, 233, 0.42);
+  backdrop-filter: blur(18px) saturate(1.08);
+  -webkit-backdrop-filter: blur(18px) saturate(1.08);
+  border-right-color: rgba(148, 139, 128, 0.22);
+}
+
+/* 导航选中/hover：同一片小玻璃（单一状态规则） */
+html.theme-glass nav a.bg-card,
+html.theme-glass nav a:hover {
+  background: rgba(252, 250, 244, 0.7);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  border-color: rgba(148, 139, 128, 0.26);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.75), 0 4px 12px -6px rgba(70, 62, 50, 0.18);
+}
+
+/* 按钮：颜色只出现在主按钮/印章/状态上 */
+html.theme-glass .btn-ink {
+  background: #443e36;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.14), 0 6px 16px -8px rgba(60, 52, 40, 0.4);
+}
+html.theme-glass .btn-ink:hover { background: #4d463d; }
+html.theme-glass .btn-seal {
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.22), 0 6px 16px -8px rgba(157, 95, 80, 0.45);
+}
+html.theme-glass .btn-ghost {
+  background: rgba(252, 250, 244, 0.5);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border-color: rgba(148, 139, 128, 0.3);
+}
+html.theme-glass .btn-ghost:hover {
+  background: rgba(252, 250, 244, 0.72);
+  border-color: rgba(148, 139, 128, 0.42);
+  color: var(--color-ink);
+}
+
+/* 输入框：最厚，近不透明保证可读 */
+html.theme-glass .field {
+  background: rgba(255, 253, 248, 0.8);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border-color: rgba(148, 139, 128, 0.32);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.7);
+}
+
+html.theme-glass .seal {
+  box-shadow: inset 0 0 0 2px rgba(247, 242, 233, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.25), 0 4px 12px -4px rgba(157, 95, 80, 0.4);
+}
+html.theme-glass .step-dot.active { box-shadow: 0 0 0 3px rgba(179, 112, 95, 0.18); }
+
+/* 代码区外壳：仅纸白模式下套玻璃；夜黑模式保持原样 */
+html.theme-glass .code-shell.bg-card {
+  background: rgba(252, 250, 244, 0.55);
+  backdrop-filter: blur(20px) saturate(1.1);
+  -webkit-backdrop-filter: blur(20px) saturate(1.1);
+  border-color: rgba(148, 139, 128, 0.28);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.8),
+    0 12px 32px -14px rgba(70, 62, 50, 0.22);
+}
+html.theme-glass .code-shell.bg-card .code-topbar {
+  background: rgba(236, 231, 219, 0.6);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border-bottom-color: rgba(148, 139, 128, 0.22);
+}

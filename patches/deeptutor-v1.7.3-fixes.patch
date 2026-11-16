@@ -1,0 +1,57 @@
+diff --git a/deeptutor/services/web_source/crawler.py b/deeptutor/services/web_source/crawler.py
+index da38da9..7ed2ef7 100644
+--- a/deeptutor/services/web_source/crawler.py
++++ b/deeptutor/services/web_source/crawler.py
+@@ -399,13 +399,25 @@ async def crawl_docs_site(
+     else:
+         base_path_prefix = raw_path.rsplit("/", 1)[0] or "/"
+ 
+-    factory = client_factory or (
+-        lambda: httpx.AsyncClient(
++    def _default_client_factory() -> httpx.AsyncClient:
++        kwargs = dict(
+             timeout=timeout_s,
+             headers={"User-Agent": DEFAULT_USER_AGENT},
+             max_redirects=5,
+         )
+-    )
++        try:
++            return httpx.AsyncClient(**kwargs)
++        except httpx.InvalidURL:
++            # MyTutor fork fix: host NO_PROXY may contain entries httpx cannot
++            # parse (e.g. bare IPv6 "[::1]"), which crashes client creation.
++            # Fall back to ignoring env proxy config; direct egress still works.
++            logger.warning(
++                "Crawl: env proxy config unparseable by httpx; "
++                "falling back to trust_env=False"
++            )
++            return httpx.AsyncClient(trust_env=False, **kwargs)
++
++    factory = client_factory or _default_client_factory
+ 
+     visited: set[str] = set()
+     queue: deque[tuple[str, int]] = deque([(base_url, 0)])
+diff --git a/deeptutor/services/web_source/snapshot_assets.py b/deeptutor/services/web_source/snapshot_assets.py
+index 464412c..e6a4c58 100644
+--- a/deeptutor/services/web_source/snapshot_assets.py
++++ b/deeptutor/services/web_source/snapshot_assets.py
+@@ -132,7 +132,18 @@ async def fetch_snapshot_image(
+ 
+ 
+ def _default_client_factory(*, timeout: float) -> httpx.AsyncClient:
+-    return httpx.AsyncClient(timeout=timeout, max_redirects=MAX_REDIRECTS)
++    try:
++        return httpx.AsyncClient(timeout=timeout, max_redirects=MAX_REDIRECTS)
++    except httpx.InvalidURL:
++        # MyTutor fork fix: unparseable env NO_PROXY (e.g. bare "[::1]")
++        # crashes httpx client creation; fall back to direct egress.
++        logger.warning(
++            "Snapshot assets: env proxy config unparseable by httpx; "
++            "falling back to trust_env=False"
++        )
++        return httpx.AsyncClient(
++            timeout=timeout, max_redirects=MAX_REDIRECTS, trust_env=False
++        )
+ 
+ 
+ async def _bounded_image_read(response: httpx.Response) -> bytes:

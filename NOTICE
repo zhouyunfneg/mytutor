@@ -1,0 +1,14 @@
+MyTutor
+Copyright 2026 zhouyunfneg
+
+This product is built on top of DeepTutor
+(https://github.com/HKUDS/DeepTutor), Copyright HKUDS and contributors,
+licensed under the Apache License, Version 2.0.
+
+MyTutor 引用 DeepTutor（v1.7.3，commit 4c1e000）作为引擎库（知识库 / RAG /
+文档抓取 / 代码沙箱），以 PYTHONPATH 方式集成，DeepTutor 源码不随本仓库分发。
+本仓库附带两处必要的本地修复补丁：patches/deeptutor-v1.7.3-fixes.patch
+（文档抓取 NO_PROXY 相关修复），安装引擎后需应用。
+
+MyTutor 自身的后端（server/）、前端（web/）与部署脚本（deploy/）为独立编写，
+同样以 Apache License 2.0 发布（见 LICENSE）。
