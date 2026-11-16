@@ -323,6 +323,16 @@ async def _note_point_safe(pack_id: str, s: dict, p: dict) -> None:
         print(f"[notes] 自动知识点笔记失败: {type(e).__name__}: {e}")
 
 
+async def _seed_practice_safe(pack_id: str, point_id: str) -> None:
+    """学完一个点登记间隔复习表；lazy import 避免与 practice 循环引用。"""
+    try:
+        from . import practice
+
+        practice.seed(pack_id, point_id)
+    except Exception as e:
+        print(f"[practice] 复习登记失败: {type(e).__name__}: {e}")
+
+
 async def advance(pack_id: str) -> dict:
     """用户点「下一个/继续」才前进。"""
     s = load_session(pack_id)
@@ -334,6 +344,7 @@ async def advance(pack_id: str) -> dict:
         p = find_point(tree, s["point_id"])
         # 后台生成复习笔记，不阻塞「下一个」；失败只记日志不影响学习
         asyncio.create_task(_note_point_safe(pack_id, dict(s), p))
+        asyncio.create_task(_seed_practice_safe(pack_id, s["point_id"]))
         sec = _section_points(tree, p)
         if all(x["id"] in s["done_points"] for x in sec):
             return await _summary(pack_id, s, p, "小节", "≤200字", sec, "section_summary")

@@ -11,9 +11,9 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
-from . import auth, config, kb, llm, notes, packs, runner, teach
+from . import auth, config, kb, llm, notes, packs, practice, runner, teach
 
-app = FastAPI(title="MyTutor", version="0.1.0")
+app = FastAPI(title="MyTutor", version="0.2.0")
 
 app.add_middleware(
     CORSMiddleware,
@@ -283,6 +283,66 @@ async def teach_advance(pack_id: str):
         return await teach.advance(pack_id)
     except Exception as e:
         return _teach_err(e)
+
+
+# ── 阶段 3：练习题库 / 错题本 / 间隔复习 ──────────────────────────────
+@app.get("/api/practice/overview")
+async def practice_overview():
+    return practice.overview()
+
+
+class PracticeNext(BaseModel):
+    mode: str = "due"  # due | wrong | point
+    pack_id: str | None = None
+    point_id: str | None = None
+    wrong_id: str | None = None
+
+
+@app.post("/api/practice/next")
+async def practice_next(body: PracticeNext):
+    try:
+        return await practice.next_problem(body.mode, body.pack_id, body.point_id, body.wrong_id)
+    except Exception as e:
+        return _teach_err(e)
+
+
+class PracticeSubmit(BaseModel):
+    pack_id: str
+    problem_id: str
+    code: str
+    wrong_id: str | None = None
+
+
+@app.post("/api/practice/submit")
+async def practice_submit(body: PracticeSubmit):
+    try:
+        return await practice.submit(body.pack_id, body.problem_id, body.code, body.wrong_id)
+    except Exception as e:
+        return _teach_err(e)
+
+
+class PracticeHint(BaseModel):
+    pack_id: str
+    problem_id: str
+    code: str
+
+
+@app.post("/api/practice/hint")
+async def practice_hint(body: PracticeHint):
+    try:
+        return await practice.hint(body.pack_id, body.problem_id, body.code)
+    except Exception as e:
+        return _teach_err(e)
+
+
+@app.get("/api/practice/wrong")
+async def practice_wrong():
+    return practice.wrong_list()
+
+
+@app.delete("/api/practice/wrong/{wrong_id}")
+async def practice_wrong_del(wrong_id: str):
+    return {"ok": practice.wrong_remove(wrong_id)}
 
 
 # 生产静态托管（开发态由 Vite 伺服，dist 不存在则不挂）

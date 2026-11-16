@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { NavLink, Navigate, Route, Routes } from 'react-router-dom';
+import { NavLink, Navigate, Route, Routes, useLocation } from 'react-router-dom';
 import Learn from './pages/Learn.jsx';
 import Practice from './pages/Practice.jsx';
 import Notes from './pages/Notes.jsx';
@@ -64,6 +64,8 @@ const NAV = [
 
 export default function App() {
   const [authed, setAuthed] = useState(null); // null= checking
+  const [dueCount, setDueCount] = useState(0);
+  const location = useLocation();
 
   useEffect(() => {
     api
@@ -74,6 +76,16 @@ export default function App() {
     window.addEventListener('mytutor:unauthorized', on401);
     return () => window.removeEventListener('mytutor:unauthorized', on401);
   }, []);
+
+  // 待复习徽标：进入页面 / 切换页面 / 练习页判题后刷新
+  useEffect(() => {
+    if (!authed) return;
+    const load = () =>
+      api.get('/api/practice/overview').then((r) => setDueCount(r.due_count || 0)).catch(() => {});
+    load();
+    window.addEventListener('mytutor:practice', load);
+    return () => window.removeEventListener('mytutor:practice', load);
+  }, [authed, location.pathname]);
 
   if (authed === null) {
     return <div className="h-full grid place-items-center text-xs text-ink-faint">…</div>;
@@ -99,7 +111,14 @@ export default function App() {
                 }`
               }
             >
-              <Icon d={n.icon} />
+              <span className="relative">
+                <Icon d={n.icon} />
+                {n.to === '/practice' && dueCount > 0 && (
+                  <span className="absolute -top-1.5 -right-2.5 min-w-[15px] h-[15px] px-0.5 rounded-full bg-cinnabar text-paper text-[9px] font-mono font-bold leading-[15px] text-center">
+                    {dueCount > 9 ? '9+' : dueCount}
+                  </span>
+                )}
+              </span>
               {n.label}
             </NavLink>
           ))}
