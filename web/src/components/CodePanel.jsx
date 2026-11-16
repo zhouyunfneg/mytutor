@@ -18,33 +18,111 @@ self.MonacoEnvironment = {
 };
 loader.config({ monaco });
 
-// 纸白主题：与全站宣纸配色一致（index.css 的 paper/ink/cinnabar/pine）
+// 纸白主题：语法色只用全站色族（index.css）——墨色正文、陶土红关键字/数字、
+// 灰绿字符串、淡墨注释；选区/光标借用品牌陶土红，不引入第四色相。
 monaco.editor.defineTheme('mytutor-paper', {
   base: 'vs',
   inherit: true,
   rules: [
-    { token: 'comment', foreground: '948b80', fontStyle: 'italic' },
-    { token: 'keyword', foreground: 'c03a2b' },
-    { token: 'string', foreground: '2f6d4f' },
-    { token: 'number', foreground: 'b07420' },
-    { token: 'type', foreground: '1f5f8b' },
-    { token: 'delimiter', foreground: '57504a' },
+    { token: 'comment', foreground: '7d7568', fontStyle: 'italic' },
+    { token: 'keyword', foreground: '9d5f50', fontStyle: 'bold' },
+    { token: 'string', foreground: '5c7a67' },
+    { token: 'number', foreground: '9d5f50' },
+    { token: 'type', foreground: '5c564e' },
+    { token: 'delimiter', foreground: '7d7568' },
+    { token: 'tag', foreground: '9d5f50', fontStyle: 'bold' },
+    { token: 'metatag', foreground: '9d5f50', fontStyle: 'bold' },
+    { token: 'attribute.name', foreground: '5c564e' },
+    { token: 'attribute.value', foreground: '5c7a67' },
+    { token: 'string.escape', foreground: '9d5f50' },
+    { token: 'regexp', foreground: '5c7a67' },
+    { token: 'constant', foreground: '9d5f50' },
+    { token: 'function', foreground: '5c564e', fontStyle: 'bold' },
+    { token: 'annotation', foreground: '7d7568' },
+    { token: 'delimiter.html', foreground: '7d7568' },
+    { token: 'delimiter.curly', foreground: '7d7568' },
+    { token: 'delimiter.square', foreground: '7d7568' },
+    { token: 'delimiter.round', foreground: '7d7568' },
+    { token: 'delimiter.bracket', foreground: '7d7568' },
+    { token: 'delimiter.parenthesis', foreground: '7d7568' },
+    { token: 'delimiter.angle', foreground: '7d7568' },
+    { token: 'attribute.value.number', foreground: '9d5f50' },
+    { token: 'attribute.value.unit', foreground: '9d5f50' },
+    { token: 'attribute.value.hex', foreground: '9d5f50' },
   ],
   colors: {
-    'editor.background': '#fdfaf4',
-    'editor.foreground': '#211d19',
-    'editorLineNumber.foreground': '#c4b8a2',
-    'editorLineNumber.activeForeground': '#57504a',
-    'editor.selectionBackground': '#e8ddc8',
-    'editor.inactiveSelectionBackground': '#efe7d7',
-    'editor.lineHighlightBackground': '#f7f2e9',
-    'editorCursor.foreground': '#c03a2b',
-    'editorIndentGuide.background': '#e5dcc8',
-    'editorWidget.background': '#f7f2e9',
-    'editorWidget.border': '#ddd2c0',
-    'editorSuggestWidget.background': '#fdfaf4',
-    'editorSuggestWidget.border': '#ddd2c0',
-    'editorSuggestWidget.selectedBackground': '#efe7d7',
+    'editor.background': '#fbf9f3',
+    'editor.foreground': '#262219',
+    'editorLineNumber.foreground': '#c9c2b4',
+    'editorLineNumber.activeForeground': '#5c564e',
+    'editor.selectionBackground': '#b3705f33',
+    'editor.inactiveSelectionBackground': '#b3705f1f',
+    'editor.lineHighlightBackground': '#f1eee6',
+    'editorCursor.foreground': '#b3705f',
+    'editorIndentGuide.background': '#d6cfc2',
+    'editorWidget.background': '#fbf9f3',
+    'editorWidget.border': '#d6cfc2',
+    'editorSuggestWidget.background': '#fbf9f3',
+    'editorSuggestWidget.border': '#d6cfc2',
+    'editorSuggestWidget.selectedBackground': '#e8e4d8',
+    'editorBracketHighlight.foreground1': '#7d7568',
+    'editorBracketHighlight.foreground2': '#9d5f50',
+    'editorBracketHighlight.foreground3': '#5c7a67',
+    'editorBracketHighlight.unexpectedBracket.foreground': '#9d5f50',
+  },
+});
+
+// 夜黑主题：暖炭面（night/night-soft），语法色为陶土红/灰绿的提亮档，
+// 与纸白同一族色相，不用 monaco 默认 vs-dark 的蓝灰。
+monaco.editor.defineTheme('mytutor-night', {
+  base: 'vs-dark',
+  inherit: true,
+  rules: [
+    { token: 'comment', foreground: '8a8177', fontStyle: 'italic' },
+    { token: 'keyword', foreground: 'd29a86', fontStyle: 'bold' },
+    { token: 'string', foreground: '9dbba6' },
+    { token: 'number', foreground: 'd29a86' },
+    { token: 'type', foreground: 'c9c2b4' },
+    { token: 'delimiter', foreground: '9a9287' },
+    { token: 'tag', foreground: 'd29a86', fontStyle: 'bold' },
+    { token: 'metatag', foreground: 'd29a86', fontStyle: 'bold' },
+    { token: 'attribute.name', foreground: 'c9c2b4' },
+    { token: 'attribute.value', foreground: '9dbba6' },
+    { token: 'string.escape', foreground: 'd29a86' },
+    { token: 'regexp', foreground: '9dbba6' },
+    { token: 'constant', foreground: 'd29a86' },
+    { token: 'function', foreground: 'c9c2b4', fontStyle: 'bold' },
+    { token: 'annotation', foreground: '8a8177' },
+    { token: 'delimiter.html', foreground: '9a9287' },
+    { token: 'delimiter.curly', foreground: '9a9287' },
+    { token: 'delimiter.square', foreground: '9a9287' },
+    { token: 'delimiter.round', foreground: '9a9287' },
+    { token: 'delimiter.bracket', foreground: '9a9287' },
+    { token: 'delimiter.parenthesis', foreground: '9a9287' },
+    { token: 'delimiter.angle', foreground: '9a9287' },
+    { token: 'attribute.value.number', foreground: 'd29a86' },
+    { token: 'attribute.value.unit', foreground: 'd29a86' },
+    { token: 'attribute.value.hex', foreground: 'd29a86' },
+  ],
+  colors: {
+    'editor.background': '#171310',
+    'editor.foreground': '#e8e2d6',
+    'editorLineNumber.foreground': '#6b6257',
+    'editorLineNumber.activeForeground': '#c9c2b4',
+    'editor.selectionBackground': '#b3705f4d',
+    'editor.inactiveSelectionBackground': '#b3705f33',
+    'editor.lineHighlightBackground': '#241e18',
+    'editorCursor.foreground': '#d29a86',
+    'editorIndentGuide.background': '#352c24',
+    'editorWidget.background': '#241e18',
+    'editorWidget.border': '#3a3128',
+    'editorSuggestWidget.background': '#241e18',
+    'editorSuggestWidget.border': '#3a3128',
+    'editorSuggestWidget.selectedBackground': '#352c24',
+    'editorBracketHighlight.foreground1': '#9a9287',
+    'editorBracketHighlight.foreground2': '#d29a86',
+    'editorBracketHighlight.foreground3': '#9dbba6',
+    'editorBracketHighlight.unexpectedBracket.foreground': '#d29a86',
   },
 });
 
@@ -52,7 +130,7 @@ const STARTERS = {
   python: '# 在这里写 Python，点「运行」看结果\nprint("你好，MyTutor")\n',
   javascript: '// 在这里写 JavaScript，点「运行」看结果\nconsole.log("你好，MyTutor");\n',
   typescript: '// 在这里写 TypeScript，点「运行」看结果\nconst greet = (name: string): string => `你好，${name}`;\nconsole.log(greet("MyTutor"));\n',
-  html: '<!-- 写 HTML/CSS/JS，右侧实时预览 -->\n<style>\n  body { font-family: sans-serif; display: grid; place-items: center; height: 100vh; margin: 0; background: #f7f2e9; }\n  h1 { color: #c03a2b; }\n</style>\n<h1>你好，MyTutor</h1>\n',
+  html: '<!-- 写 HTML/CSS/JS，右侧实时预览 -->\n<style>\n  body { font-family: sans-serif; display: grid; place-items: center; height: 100vh; margin: 0; background: #f1eee6; }\n  h1 { color: #9d5f50; }\n</style>\n<h1>你好，MyTutor</h1>\n',
 };
 
 const LANGS = [
@@ -130,7 +208,7 @@ export default function CodePanel({ lockLang = null, onCodeChange, inject = null
       light ? 'bg-card border-line' : 'bg-night border-night-soft'
     }`}>
       {/* 顶栏 */}
-      <div className={`code-topbar flex items-center gap-1 px-3 py-2 border-b ${
+      <div className={`code-topbar flex flex-wrap items-center gap-1 gap-y-1 px-3 py-2 border-b ${
         light ? 'bg-paper-deep border-line' : 'bg-night-soft border-white/5'
       }`}>
         {(lockLang ? LANGS.filter((l) => l.id === lockLang) : LANGS).map((l) => (
@@ -149,7 +227,7 @@ export default function CodePanel({ lockLang = null, onCodeChange, inject = null
         <button
           onClick={() => setTheme(light ? 'night' : 'paper')}
           title="切换代码区主题"
-          className={`ml-auto px-2.5 py-1 rounded-md text-[11px] font-mono border transition-colors ${
+          className={`ml-auto shrink-0 px-2.5 py-1 rounded-md text-[11px] font-mono border transition-colors ${
             light
               ? 'border-line text-ink-soft hover:text-ink hover:border-ink-faint'
               : 'border-white/15 text-paper/60 hover:text-paper'
@@ -160,7 +238,7 @@ export default function CodePanel({ lockLang = null, onCodeChange, inject = null
         <button
           onClick={run}
           disabled={running}
-          className="btn-seal px-4 py-1 text-xs font-medium"
+          className="btn-seal shrink-0 whitespace-nowrap px-4 py-1 text-xs font-medium"
         >
           {running ? '运行中…' : lang === 'html' ? '刷新预览' : '运行 ▶'}
         </button>
@@ -173,7 +251,7 @@ export default function CodePanel({ lockLang = null, onCodeChange, inject = null
           language={monacoLang}
           value={code}
           onChange={setCode}
-          theme={light ? 'mytutor-paper' : 'vs-dark'}
+          theme={light ? 'mytutor-paper' : 'mytutor-night'}
           options={{
             fontSize: 13,
             fontFamily: 'Cascadia Code, JetBrains Mono, Consolas, monospace',
@@ -182,6 +260,7 @@ export default function CodePanel({ lockLang = null, onCodeChange, inject = null
             padding: { top: 12 },
             lineNumbersMinChars: 3,
             renderLineHighlight: 'gutter',
+            bracketPairColorization: { enabled: false },
             automaticLayout: true,
             tabSize: 2,
           }}

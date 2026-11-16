@@ -1,16 +1,33 @@
 @import "tailwindcss";
 
+/* ============================================================
+   统一毛玻璃材质（唯一主题，宣纸皮肤已移除）
+   按 solid-glass 技能的四条材质规则手写，不用其默认高饱和色：
+   1. 质感在边缘：顶部光线 + 四周发丝线 + 底部聚拢投影，面不画渐变
+   2. 厚重不飘：近不透明的暖纸面，模糊只柔化背后光斑不放大颜色
+   3. 厚度即层次：侧栏(最薄) < 卡片 < 输入/浮层(最厚)
+   4. 单一状态：hover/选中同一片玻璃，只变透明度不变色相
+   配色纪律（全站仅此一族的色相）：
+   - 暖纸中性族 paper/card/line/ink 三档：背景、面、线、文字
+   - 陶土红 cinnabar：主行动、当前/进行中、品牌印章；deep 档表失败/严重
+   - 灰绿 pine：已完成/就绪/进度；deep 档供小字保证对比
+   - 夜黑 night：仅代码区暗面，语法色用陶土红/灰绿的提亮档
+   背景柔光只许暖沙 + 极淡灰绿 + 暖中性，不引入第四色相。
+   ============================================================ */
 @theme {
-  --color-paper: #f7f2e9;
-  --color-paper-deep: #efe7d7;
-  --color-card: #fdfaf4;
-  --color-ink: #211d19;
-  --color-ink-soft: #57504a;
-  --color-ink-faint: #948b80;
-  --color-cinnabar: #c03a2b;
-  --color-cinnabar-deep: #9e2b1f;
-  --color-pine: #2f6d4f;
-  --color-line: #ddd2c0;
+  --color-paper: #f1eee6;
+  --color-paper-deep: #e8e4d8;
+  --color-card: #fbf9f3;
+  --color-ink: #262219;
+  --color-ink-soft: #5c564e;
+  --color-ink-faint: #9a9287;
+  --color-cinnabar: #b3705f;
+  --color-cinnabar-deep: #9d5f50;
+  --color-cinnabar-light: #d29a86;
+  --color-pine: #6d8a77;
+  --color-pine-deep: #5c7a67;
+  --color-pine-light: #9dbba6;
+  --color-line: #d6cfc2;
   --color-night: #171310;
   --color-night-soft: #241e18;
   --font-display: "Noto Serif SC", "Source Han Serif SC", "STZhongsong", "SimSun", serif;
@@ -22,30 +39,39 @@ html, body, #root {
   height: 100%;
 }
 
+/* 背后的柔光：极淡灰绿 + 暖沙 + 暖中性（同族色相，固定附着供玻璃柔化） */
 body {
   font-family: var(--font-body);
   color: var(--color-ink);
-  background-color: var(--color-paper);
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2'/%3E%3CfeColorMatrix values='0 0 0 0 0.45 0 0 0 0 0.40 0 0 0 0 0.33 0 0 0 0.035 0'/%3E%3C/filter%3E%3Crect width='140' height='140' filter='url(%23n)'/%3E%3C/svg%3E");
+  background-color: #eceae3;
+  background-image:
+    radial-gradient(900px 620px at 10% -10%, rgba(213, 220, 211, 0.7), transparent 62%),
+    radial-gradient(820px 560px at 104% 8%, rgba(232, 224, 205, 0.9), transparent 60%),
+    radial-gradient(1000px 720px at 50% 118%, rgba(226, 222, 210, 0.85), transparent 64%);
+  background-attachment: fixed;
 }
 
 ::selection {
-  background: rgba(192, 58, 43, 0.18);
+  background: rgba(179, 112, 95, 0.22);
 }
 
 *::-webkit-scrollbar { width: 8px; height: 8px; }
-*::-webkit-scrollbar-thumb { background: #cfc3ae; border-radius: 4px; }
+*::-webkit-scrollbar-thumb { background: #c9c2b4; border-radius: 4px; }
+*::-webkit-scrollbar-thumb:hover { background: #b4ac9f; }
 *::-webkit-scrollbar-track { background: transparent; }
+/* 夜黑代码区内的滚动条换暗面同族色 */
+.bg-night::-webkit-scrollbar-thumb, .bg-night *::-webkit-scrollbar-thumb { background: #4a4036; }
+.bg-night::-webkit-scrollbar-thumb:hover, .bg-night *::-webkit-scrollbar-thumb:hover { background: #5c564e; }
 
 .font-display { font-family: var(--font-display); }
 .font-mono { font-family: var(--font-mono); }
 
-/* 印章 logo */
+/* 印章（页面字符标记） */
 .seal {
   background: var(--color-cinnabar);
-  color: #f7f2e9;
+  color: #fbf9f3;
   font-family: var(--font-display);
-  box-shadow: inset 0 0 0 2px rgba(247, 242, 233, 0.35), 0 1px 3px rgba(33, 29, 25, 0.25);
+  box-shadow: inset 0 0 0 2px rgba(247, 242, 233, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.25), 0 4px 12px -4px rgba(157, 95, 80, 0.4);
   border-radius: 6px;
 }
 
@@ -72,94 +98,12 @@ body {
 .step-dot.active {
   background: var(--color-cinnabar);
   border-color: var(--color-cinnabar);
-  box-shadow: 0 0 0 3px rgba(192, 58, 43, 0.15);
+  box-shadow: 0 0 0 3px rgba(179, 112, 95, 0.18);
 }
 .step-dot.done { background: var(--color-pine); border-color: var(--color-pine); }
 
-/* 纸卡片 */
+/* 卡片：中等厚度玻璃（类名沿用 paper-card） */
 .paper-card {
-  background: var(--color-card);
-  border: 1px solid var(--color-line);
-  border-radius: 10px;
-  box-shadow: 0 1px 2px rgba(33, 29, 25, 0.04), 0 4px 14px rgba(33, 29, 25, 0.03);
-}
-
-/* 按钮 */
-.btn-ink {
-  background: var(--color-ink);
-  color: var(--color-paper);
-  border-radius: 8px;
-  transition: all 0.18s ease;
-}
-.btn-ink:hover { background: #3a332c; }
-.btn-ink:disabled { opacity: 0.45; cursor: not-allowed; }
-.btn-seal {
-  background: var(--color-cinnabar);
-  color: #fdfaf4;
-  border-radius: 8px;
-  transition: all 0.18s ease;
-}
-.btn-seal:hover { background: var(--color-cinnabar-deep); }
-.btn-seal:disabled { opacity: 0.45; cursor: not-allowed; }
-.btn-ghost {
-  border: 1px solid var(--color-line);
-  border-radius: 8px;
-  color: var(--color-ink-soft);
-  background: transparent;
-  transition: all 0.18s ease;
-}
-.btn-ghost:hover { border-color: var(--color-ink-faint); color: var(--color-ink); }
-
-input, select, textarea {
-  outline: none;
-}
-.field {
-  background: #fffdf8;
-  border: 1px solid var(--color-line);
-  border-radius: 8px;
-  padding: 8px 12px;
-  font-size: 14px;
-  transition: border-color 0.15s ease;
-}
-.field:focus { border-color: var(--color-cinnabar); }
-
-/* ============================================================
-   毛玻璃皮肤（html.theme-glass）
-   按 solid-glass 技能的四条材质规则手写，不用其默认高饱和色：
-   1. 质感在边缘：顶部光线 + 四周发丝线 + 底部聚拢投影，面不画渐变
-   2. 厚重不飘：近不透明的暖纸面，模糊只柔化背后光斑不放大颜色
-   3. 厚度即层次：侧栏(最薄) < 卡片 < 输入/浮层(最厚)
-   4. 单一状态：hover/选中同一片玻璃，只变透明度不变色相
-   配色全部取自现有宣纸色系的低饱和变体（陶土红/灰绿/ mist 蓝）。
-   ============================================================ */
-html.theme-glass {
-  --color-paper: #f1eee6;
-  --color-paper-deep: #e8e4d8;
-  --color-card: #fbf9f3;
-  --color-ink: #262219;
-  --color-ink-soft: #5c564e;
-  --color-ink-faint: #9a9287;
-  --color-cinnabar: #b3705f;
-  --color-cinnabar-deep: #9d5f50;
-  --color-pine: #6d8a77;
-  --color-line: #d6cfc2;
-}
-
-/* 背后的柔光：低饱和苔绿/暖沙/雾蓝，固定附着供玻璃柔化 */
-html.theme-glass body {
-  background-color: #eceae3;
-  background-image:
-    radial-gradient(900px 620px at 10% -10%, rgba(206, 216, 202, 0.9), transparent 62%),
-    radial-gradient(820px 560px at 104% 8%, rgba(228, 219, 200, 0.95), transparent 60%),
-    radial-gradient(1000px 720px at 50% 118%, rgba(205, 214, 219, 0.8), transparent 64%);
-  background-attachment: fixed;
-}
-
-html.theme-glass ::selection { background: rgba(179, 112, 95, 0.22); }
-html.theme-glass *::-webkit-scrollbar-thumb { background: #c9c2b4; }
-
-/* 卡片：中等厚度玻璃 */
-html.theme-glass .paper-card {
   background: rgba(252, 250, 244, 0.62);
   backdrop-filter: blur(22px) saturate(1.12);
   -webkit-backdrop-filter: blur(22px) saturate(1.12);
@@ -172,7 +116,7 @@ html.theme-glass .paper-card {
 }
 
 /* 侧栏：最薄一层玻璃 */
-html.theme-glass aside {
+aside {
   background: rgba(244, 241, 233, 0.42);
   backdrop-filter: blur(18px) saturate(1.08);
   -webkit-backdrop-filter: blur(18px) saturate(1.08);
@@ -180,8 +124,8 @@ html.theme-glass aside {
 }
 
 /* 导航选中/hover：同一片小玻璃（单一状态规则） */
-html.theme-glass nav a.bg-card,
-html.theme-glass nav a:hover {
+nav a.bg-card,
+nav a:hover {
   background: rgba(252, 250, 244, 0.7);
   backdrop-filter: blur(14px);
   -webkit-backdrop-filter: blur(14px);
@@ -190,42 +134,68 @@ html.theme-glass nav a:hover {
 }
 
 /* 按钮：颜色只出现在主按钮/印章/状态上 */
-html.theme-glass .btn-ink {
+.btn-ink {
   background: #443e36;
+  color: var(--color-paper);
+  border-radius: 8px;
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.14), 0 6px 16px -8px rgba(60, 52, 40, 0.4);
+  transition: all 0.18s ease;
 }
-html.theme-glass .btn-ink:hover { background: #4d463d; }
-html.theme-glass .btn-seal {
+.btn-ink:hover { background: #4d463d; }
+.btn-ink:disabled { opacity: 0.45; cursor: not-allowed; }
+.btn-seal {
+  background: var(--color-cinnabar);
+  color: #fdfaf4;
+  border-radius: 8px;
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.22), 0 6px 16px -8px rgba(157, 95, 80, 0.45);
+  transition: all 0.18s ease;
 }
-html.theme-glass .btn-ghost {
+.btn-seal:hover { background: var(--color-cinnabar-deep); }
+.btn-seal:disabled { opacity: 0.45; cursor: not-allowed; }
+.btn-ghost {
+  border: 1px solid rgba(148, 139, 128, 0.3);
+  border-radius: 8px;
+  color: var(--color-ink-soft);
   background: rgba(252, 250, 244, 0.5);
   backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);
-  border-color: rgba(148, 139, 128, 0.3);
+  transition: all 0.18s ease;
 }
-html.theme-glass .btn-ghost:hover {
+.btn-ghost:hover {
   background: rgba(252, 250, 244, 0.72);
   border-color: rgba(148, 139, 128, 0.42);
   color: var(--color-ink);
 }
 
+input, select, textarea {
+  outline: none;
+}
+
 /* 输入框：最厚，近不透明保证可读 */
-html.theme-glass .field {
+.field {
   background: rgba(255, 253, 248, 0.8);
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
-  border-color: rgba(148, 139, 128, 0.32);
+  border: 1px solid rgba(148, 139, 128, 0.32);
+  border-radius: 8px;
+  padding: 8px 12px;
+  font-size: 14px;
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.7);
+  transition: border-color 0.15s ease;
 }
+.field:focus { border-color: var(--color-cinnabar); }
 
-html.theme-glass .seal {
-  box-shadow: inset 0 0 0 2px rgba(247, 242, 233, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.25), 0 4px 12px -4px rgba(157, 95, 80, 0.4);
-}
-html.theme-glass .step-dot.active { box-shadow: 0 0 0 3px rgba(179, 112, 95, 0.18); }
+/* 学习书收纳轨：书脊意象。整条是一枚按钮，hover 同一片玻璃提亮 */
+.book-rail { cursor: pointer; }
+.book-rail:hover { background: rgba(252, 250, 244, 0.75); }
+.book-rail:focus-visible { outline: 2px solid rgba(179, 112, 95, 0.5); outline-offset: -2px; }
+.book-rail .rail-chip { transition: transform 0.18s ease, background 0.18s ease; }
+.book-rail:hover .rail-chip { transform: translateX(1.5px); background: rgba(252, 250, 244, 0.85); }
+.rail-track { width: 3px; border-radius: 999px; background: rgba(148, 139, 128, 0.25); overflow: hidden; }
+.rail-fill { background: var(--color-pine); border-radius: 999px; transition: height 0.4s ease; }
 
-/* 代码区外壳：仅纸白模式下套玻璃；夜黑模式保持原样 */
-html.theme-glass .code-shell.bg-card {
+/* 代码区外壳：仅纸白模式下套玻璃；夜黑模式不用 bg-card，天然排除 */
+.code-shell.bg-card {
   background: rgba(252, 250, 244, 0.55);
   backdrop-filter: blur(20px) saturate(1.1);
   -webkit-backdrop-filter: blur(20px) saturate(1.1);
@@ -234,7 +204,7 @@ html.theme-glass .code-shell.bg-card {
     inset 0 1px 0 rgba(255, 255, 255, 0.8),
     0 12px 32px -14px rgba(70, 62, 50, 0.22);
 }
-html.theme-glass .code-shell.bg-card .code-topbar {
+.code-shell.bg-card .code-topbar {
   background: rgba(236, 231, 219, 0.6);
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);

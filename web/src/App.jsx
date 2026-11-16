@@ -6,6 +6,8 @@ import Notes from './pages/Notes.jsx';
 import Me from './pages/Me.jsx';
 import { api } from './api.js';
 
+const LOGO = `${import.meta.env.BASE_URL}logo.svg`;
+
 function Login({ onOk }) {
   const [pw, setPw] = useState('');
   const [err, setErr] = useState(null);
@@ -27,7 +29,7 @@ function Login({ onOk }) {
   return (
     <div className="h-full grid place-items-center p-6">
       <form onSubmit={submit} className="paper-card p-8 w-full max-w-sm fade-up">
-        <div className="seal w-14 h-14 mx-auto flex items-center justify-center text-2xl font-bold mb-5">学</div>
+        <img src={LOGO} alt="MyTutor" className="w-14 h-14 mx-auto mb-5 select-none" />
         <h1 className="font-display text-xl font-bold text-center mb-1">MyTutor</h1>
         <p className="text-xs text-ink-faint text-center mb-6">私人编程学习平台 · 口令进入</p>
         <input
@@ -62,12 +64,6 @@ const NAV = [
 
 export default function App() {
   const [authed, setAuthed] = useState(null); // null= checking
-  const [skin, setSkin] = useState(() => localStorage.getItem('mytutor-skin') || 'paper');
-
-  useEffect(() => {
-    localStorage.setItem('mytutor-skin', skin);
-    document.documentElement.classList.toggle('theme-glass', skin === 'glass');
-  }, [skin]);
 
   useEffect(() => {
     api
@@ -88,9 +84,7 @@ export default function App() {
     <div className="flex h-full">
       {/* 左侧导航 */}
       <aside className="w-[88px] shrink-0 border-r border-line bg-paper-deep/60 flex flex-col items-center py-5 gap-1">
-        <div className="seal w-11 h-11 flex items-center justify-center text-xl font-bold mb-6 select-none">
-          学
-        </div>
+        <img src={LOGO} alt="MyTutor" className="w-11 h-11 mb-6 select-none" />
         <nav className="flex flex-col gap-2 w-full px-3 stagger">
           {NAV.map((n) => (
             <NavLink
@@ -110,17 +104,8 @@ export default function App() {
             </NavLink>
           ))}
         </nav>
-        <div className="mt-auto flex flex-col items-center gap-2.5">
-          <button
-            onClick={() => setSkin(skin === 'paper' ? 'glass' : 'paper')}
-            title="切换全站皮肤"
-            className="btn-ghost px-2.5 py-1 text-[10px] font-display tracking-wider"
-          >
-            {skin === 'paper' ? '毛玻璃' : '宣纸'}
-          </button>
-          <div className="text-[10px] text-ink-faint font-display tracking-widest">
-            MyTutor
-          </div>
+        <div className="mt-auto text-[10px] text-ink-faint font-display tracking-widest">
+          MyTutor
         </div>
       </aside>
 

@@ -7,7 +7,7 @@ const STATUS = {
   indexing: { label: '建索引中…', cls: 'text-cinnabar' },
   tree: { label: '生成技能树…', cls: 'text-cinnabar' },
   ready: { label: '就绪', cls: 'text-pine' },
-  error: { label: '失败', cls: 'text-cinnabar' },
+  error: { label: '失败', cls: 'text-cinnabar-deep' },
 };
 const ACTIVE = new Set(['crawling', 'indexing', 'tree']);
 
@@ -271,8 +271,6 @@ export default function PackPanel({ onSelectPack, onResume, onRestart, onDetailC
   // ── 书架（列表）视图 ────────────────────────────────────────────────
   return (
     <div className="flex flex-col h-full">
-      <h2 className="font-display text-lg font-bold mb-1">学习书</h2>
-      <p className="text-xs text-ink-faint mb-4">一次一个小点，循序渐进</p>
       {!packs ? (
         <div className="text-xs text-ink-faint">加载中…</div>
       ) : (

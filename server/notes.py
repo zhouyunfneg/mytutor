@@ -91,46 +91,41 @@ async def delete_note(note_id: str) -> bool:
 
 
 # ── AI 自动笔记 ──────────────────────────────────────────────────────
-NOTE_PROMPT = """你是 MyTutor 的笔记助手。把下面这次微知识点学习整理成一则复习笔记。
+# 规则（用户定）：突出知识点重点，简洁明了；不记录知识点之外的错误过程。
+NOTE_PROMPT = """你是 MyTutor 的笔记助手。把这次微知识点学习整理成一则复习笔记，只突出知识点本身的重点，简洁明了。
 
 知识点：{title}（目标：{goal}）
 讲解：{explain}
-练习题：{task}
-学习者共提交 {attempts} 次，卡壳记录：
-{stumbles}
-巩固变式题：{cons_task}
-
-要求：中文≤250字；第一句点明核心；然后 2~4 条要点（可用"- "列表）；如果学习者卡过壳，必须有一条针对他错因的提醒；不复述题面全文，不写套话，不讲新内容。"""
+{stumble_line}
+要求：
+1. 中文≤150字：第一句点明核心，然后 2~3 条要点（用"- "列表）；语法/格式类知识可带一个最小示例。
+2. 只写知识点重点：不复述题面，不记录学习过程（提交次数、报错输出、练习/巩固题一律不写），不写套话，不讲新内容。
+3. 仅当学习者的卡壳反映了对本知识点的误解时，才在末尾加一句澄清（≤25字）；否则完全不提错误。
+4. 直接输出笔记正文，无标题、无开场白。"""
 
 
 async def auto_point_note(pack_id: str, s: dict, point: dict) -> dict:
     """学完一个点（原题+变式都过）后自动生成复习笔记。LLM 失败时降级为结构化记录。"""
     stumbles = s.get("hint_log") or []
-    st_txt = "\n".join(
-        f"- 运行结果: {x.get('output', '')[:120]} → 提示: {x.get('hint', '')[:120]}"
-        for x in stumbles[-3:]
-    ) or "无（一次做对）"
-    ex_task = (s.get("exercise") or {}).get("task", "")
-    cons_task = (s.get("consolidate") or {}).get("task", "")
+    stumble_line = (
+        f"学习者曾卡壳，当时得到的提示：{stumbles[-1].get('hint', '')[:100]}"
+        if stumbles else "学习者一次做对，无卡壳。"
+    )
     try:
         body = (await llm.chat(
             [{"role": "user", "content": NOTE_PROMPT.format(
                 title=point["title"], goal=point.get("goal", ""),
-                explain=(s.get("explain") or "")[:1200], task=ex_task,
-                attempts=s.get("attempts", 0), stumbles=st_txt, cons_task=cons_task)}],
+                explain=(s.get("explain") or "")[:1200], stumble_line=stumble_line)}],
             temperature=0.3,
-            max_tokens=600,
+            max_tokens=400,
         )).strip()
     except Exception:
         body = ""
     if not body:
-        body = f"核心：{point.get('goal', point['title'])}\n讲解摘录：{(s.get('explain') or '')[:200]}"
-        if stumbles:
-            body += "\n卡壳提醒：" + "；".join(x.get("hint", "")[:80] for x in stumbles[-2:])
-    footer = f"\n\n---\n练习：{ex_task}\n巩固：{cons_task}\n提交次数：{s.get('attempts', 0)}"
+        body = f"核心：{point.get('goal', point['title'])}\n讲解摘录：{(s.get('explain') or '')[:150]}"
     return await add_note(
         kind="auto", sub="point", scope=point["id"], pack_id=pack_id, point_id=point["id"],
-        title=point["title"], content=body + footer,
+        title=point["title"], content=body,
     )
 
 

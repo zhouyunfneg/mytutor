@@ -6,6 +6,22 @@ import { api } from '../api.js';
 
 const LOCK_LANG = { python: 'python', javascript: 'javascript', typescript: 'typescript', 'html-css': 'html' };
 
+const ChevronsRight = () => (
+  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+    <path d="m6 17 5-5-5-5" /><path d="m13 17 5-5-5-5" />
+  </svg>
+);
+const PanelLeftClose = () => (
+  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
+    <rect x="3" y="4" width="18" height="16" rx="2" /><path d="M9 4v16" /><path d="m16 15-3-3 3-3" />
+  </svg>
+);
+const BookOpen = () => (
+  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M2 4h6a4 4 0 0 1 4 4v12a3 3 0 0 0-3-3H2z" /><path d="M22 4h-6a4 4 0 0 0-4 4v12a3 3 0 0 1 3-3h7z" />
+  </svg>
+);
+
 export default function Learn() {
   const [packId, setPackId] = useState(null);
   const [session, setSession] = useState(null);
@@ -13,10 +29,23 @@ export default function Learn() {
   const [inject, setInject] = useState(null);
   const [bookOpen, setBookOpen] = useState(false);
   const [collapsed, setCollapsed] = useState(() => localStorage.getItem('mytutor-book-collapsed') === '1');
+  const [packsMeta, setPacksMeta] = useState(null);
 
   useEffect(() => {
     localStorage.setItem('mytutor-book-collapsed', collapsed ? '1' : '0');
   }, [collapsed]);
+
+  // 书脊进度：当前包的总点数；未选包时显示最近在读的那本
+  useEffect(() => {
+    api.get('/api/packs').then(setPacksMeta).catch(() => setPacksMeta(null));
+  }, [packId]);
+
+  const railPack = packId
+    ? (packsMeta || []).find((p) => p.id === packId)
+    : (packsMeta || []).find((p) => p.progress?.started);
+  const railDone = packId ? session?.done_points?.length || 0 : railPack?.progress?.done?.length || 0;
+  const railTotal = railPack?.progress?.total || 0;
+  const railPct = railTotal > 0 ? Math.round((railDone / railTotal) * 100) : 0;
 
   const refresh = useCallback(async () => {
     if (!packId) return;
@@ -69,57 +98,90 @@ export default function Learn() {
 
   return (
     <div className="flex h-full gap-4 p-4">
-      {/* 左：学习书，可收纳成窄轨，把空间让给讲解和代码区 */}
+      {/* 左：学习书。收纳态是一条"书脊"窄轨，整条可点展开 */}
       <div
         className="shrink-0 paper-card fade-up relative overflow-hidden"
-        style={{ width: collapsed ? 46 : bookOpen ? 320 : 230, transition: 'width 0.25s ease' }}
+        style={{ width: collapsed ? 46 : bookOpen ? 320 : 230, transition: 'width 0.3s cubic-bezier(0.4, 0, 0.2, 1)' }}
       >
-        {/* 收纳态：窄轨（展开按钮 + 竖排书名 + 进度） */}
-        <div
-          className="absolute inset-0 flex-col items-center py-3 gap-3"
-          style={{ display: collapsed ? 'flex' : 'none' }}
+        {/* 书脊（收纳态）：圆形玻璃展开钮 + 竖排书名 + 书签式进度 + 页码 */}
+        <button
+          type="button"
+          onClick={() => setCollapsed(false)}
+          aria-label={`展开学习书${railTotal > 0 ? `（已学 ${railDone} / ${railTotal} 点）` : ''}`}
+          aria-expanded={!collapsed}
+          className="book-rail absolute inset-0 flex flex-col items-center pt-3 pb-3.5"
+          style={{
+            opacity: collapsed ? 1 : 0,
+            visibility: collapsed ? 'visible' : 'hidden',
+            pointerEvents: collapsed ? 'auto' : 'none',
+            transition: collapsed
+              ? 'opacity 0.22s ease 0.1s, visibility 0s'
+              : 'opacity 0.15s ease, visibility 0s linear 0.15s',
+          }}
         >
-          <button
-            onClick={() => setCollapsed(false)}
-            title="展开学习书"
-            className="btn-ghost w-7 h-7 grid place-items-center text-xs leading-none shrink-0"
-          >
-            »
-          </button>
+          <span className="rail-chip w-7 h-7 shrink-0 grid place-items-center rounded-full border border-line/70 bg-card/70 text-ink-soft shadow-sm">
+            <ChevronsRight />
+          </span>
           <span
-            className="font-display text-xs text-ink-soft tracking-widest select-none"
-            style={{ writingMode: 'vertical-rl' }}
+            className="font-display text-xs text-ink-soft select-none mt-5"
+            style={{ writingMode: 'vertical-rl', letterSpacing: '0.35em' }}
           >
             学习书
           </span>
-          {session?.done_points?.length > 0 && (
+          <span className="flex-1 min-h-0 w-full flex justify-center py-4">
+            {railTotal > 0 && (
+              <span className="rail-track block h-full max-h-[120px] min-h-[36px]">
+                <span className="rail-fill block w-full" style={{ height: `${railPct}%` }} />
+              </span>
+            )}
+          </span>
+          {railTotal > 0 && (
             <span
-              className="mt-auto text-[10px] font-mono text-pine select-none"
-              style={{ writingMode: 'vertical-rl' }}
-              title={`已学 ${session.done_points.length} 点`}
+              className="shrink-0 font-mono text-[10px] text-ink-faint select-none"
+              title={`已学 ${railDone} / ${railTotal} 点`}
             >
-              已学{session.done_points.length}点
+              {railDone}
             </span>
           )}
-        </div>
+        </button>
 
-        {/* 书内容：收纳时只隐藏不卸载，展开后仍在原目录位置 */}
-        <div className="h-full p-4" style={{ width: bookOpen ? 320 : 230, display: collapsed ? 'none' : 'block' }}>
-          <button
-            onClick={() => setCollapsed(true)}
-            title="收纳学习书，专心当前内容"
-            className="absolute top-2.5 right-2.5 z-10 btn-ghost px-1.5 py-0.5 text-xs leading-none"
-          >
-            «
-          </button>
-          <PackPanel
-            onSelectPack={onSelectPack}
-            onResume={(pid) => openPack(pid)}
-            onRestart={(pid) => openPack(pid, { restart: true })}
-            onDetailChange={setBookOpen}
-            activePackId={packId}
-            session={session}
-          />
+        {/* 书页（展开态）：书头栏 + 目录。收纳时淡出但不卸载，位置保留 */}
+        <div
+          className="h-full flex flex-col"
+          aria-hidden={collapsed}
+          style={{
+            width: bookOpen ? 320 : 230,
+            opacity: collapsed ? 0 : 1,
+            visibility: collapsed ? 'hidden' : 'visible',
+            pointerEvents: collapsed ? 'none' : 'auto',
+            transition: collapsed
+              ? 'opacity 0.15s ease, visibility 0s linear 0.15s'
+              : 'opacity 0.22s ease 0.1s, visibility 0s',
+          }}
+        >
+          <div className="shrink-0 flex items-center gap-2 px-4 pt-3.5 pb-2.5 border-b border-line/60">
+            <span className="text-ink-soft"><BookOpen /></span>
+            <span className="font-display text-sm font-bold flex-1">学习书</span>
+            <button
+              type="button"
+              onClick={() => setCollapsed(true)}
+              title="收纳学习书，专心当前内容"
+              aria-label="收纳学习书"
+              className="btn-ghost w-7 h-7 grid place-items-center rounded-full"
+            >
+              <PanelLeftClose />
+            </button>
+          </div>
+          <div className="flex-1 min-h-0 p-4 pt-3">
+            <PackPanel
+              onSelectPack={onSelectPack}
+              onResume={(pid) => openPack(pid)}
+              onRestart={(pid) => openPack(pid, { restart: true })}
+              onDetailChange={setBookOpen}
+              activePackId={packId}
+              session={session}
+            />
+          </div>
         </div>
       </div>
 
