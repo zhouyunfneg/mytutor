@@ -2,6 +2,8 @@ import { useEffect, useRef, useState } from 'react';
 import { api } from '../api.js';
 import Rich from './Rich.jsx';
 
+const LOGO = `${import.meta.env.BASE_URL}logo.svg`;
+
 const STEPS = ['讲解', '出题', '纠错', '巩固'];
 const STEP_IDX = {
   explain: 0,
@@ -98,7 +100,7 @@ export default function TeachCard({ packId, session, refresh, code, onLoadStarte
     return (
       <div className="flex-1 grid place-items-center">
         <div className="text-center max-w-md px-6">
-          <div className="seal w-14 h-14 mx-auto flex items-center justify-center text-2xl font-bold mb-5">微</div>
+          <img src={LOGO} alt="MyTutor" className="w-14 h-14 mx-auto mb-5 select-none" />
           <h3 className="font-display text-xl font-bold mb-3">一小点，一小步</h3>
           <p className="text-[15px] leading-8 text-ink-soft mb-6">
             每个知识点只讲一小段，配一个示例；

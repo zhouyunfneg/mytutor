@@ -4,7 +4,22 @@ import PackPanel from '../components/PackPanel.jsx';
 import TeachCard from '../components/TeachCard.jsx';
 import { api } from '../api.js';
 
+const LOGO = `${import.meta.env.BASE_URL}logo.svg`;
+
 const LOCK_LANG = { python: 'python', javascript: 'javascript', typescript: 'typescript', 'html-css': 'html', c: 'c', cpp: 'cpp', csharp: 'csharp', rust: 'rust', go: 'go' };
+
+// 未选语言时的空态：用各语言一句话特点代替循环说明，帮学习者先认识再选
+const LANG_INTRO = [
+  { id: 'python', name: 'Python', blurb: '语法最接近自然语言，上手快；AI、数据与自动化首选。' },
+  { id: 'javascript', name: 'JavaScript', blurb: '浏览器原生语言，网页交互与 Node 全栈都靠它。' },
+  { id: 'html-css', name: 'HTML / CSS', blurb: '网页的骨架与样式，做页面必学的第一步。' },
+  { id: 'typescript', name: 'TypeScript', blurb: '给 JavaScript 加类型，错误更早暴露，大项目更稳。' },
+  { id: 'c', name: 'C', blurb: '小而贴近硬件，指针与内存手动管，系统编程基石。' },
+  { id: 'cpp', name: 'C++', blurb: 'C 加面向对象与泛型，极致性能，游戏引擎常用。' },
+  { id: 'csharp', name: 'C#', blurb: '微软系现代语言，Unity 游戏与企业应用广泛。' },
+  { id: 'rust', name: 'Rust', blurb: '所有权机制编译期杜绝内存错误，安全与性能兼得。' },
+  { id: 'go', name: 'Go', blurb: '语法极简、并发内置，云原生与后端服务主流。' },
+];
 
 const ChevronsRight = () => (
   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
@@ -205,16 +220,25 @@ export default function Learn() {
             onLoadStarter={(starter) => setInject({ lang: lockLang || 'python', code: starter, n: Date.now() })}
           />
         ) : (
-          <div className="flex-1 grid place-items-center">
-            <div className="text-center max-w-sm">
-              <div className="seal w-14 h-14 mx-auto flex items-center justify-center text-2xl font-bold mb-5">微</div>
-              <h3 className="font-display text-xl font-bold mb-3">一小点，一小步</h3>
-              <p className="text-sm text-ink-soft leading-relaxed">
-                每个知识点只讲一小段（≤300 字 + 一个示例），
-                马上动手做小题，错了给提示不给答案，改对再巩固，
-                你点「下一个」才前进。小节有小总结，模块有大总结。
-              </p>
-              <p className="text-xs text-ink-faint mt-4">先在左栏安装语言包，再点「开始学习」。进度记在服务器，换电脑接着学。</p>
+          <div className="flex-1 min-h-0 overflow-y-auto py-6 px-1 flex">
+            <div className="m-auto w-full max-w-[680px]">
+              <div className="text-center mb-6">
+                <img src={LOGO} alt="MyTutor" className="w-12 h-12 mx-auto mb-4 select-none" />
+                <h3 className="font-display text-xl font-bold mb-2">先认识语言，再选一门开始</h3>
+                <p className="text-xs text-ink-faint">讲一小段 → 做小题 → 纠错 → 巩固，你点「下一个」才前进。</p>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5">
+                {(packsMeta?.length
+                  ? packsMeta.map((p) => LANG_INTRO.find((x) => x.id === p.id)).filter(Boolean)
+                  : LANG_INTRO
+                ).map((l) => (
+                  <div key={l.id} className="rounded-xl border border-line/70 bg-paper-deep/50 px-4 py-3">
+                    <div className="font-display text-[15px] font-bold">{l.name}</div>
+                    <p className="text-[13px] leading-6 text-ink-soft mt-1">{l.blurb}</p>
+                  </div>
+                ))}
+              </div>
+              <p className="text-xs text-ink-faint mt-5 text-center">在左栏点书名安装并打开语言包；进度记在服务器，换电脑接着学。</p>
             </div>
           </div>
         )}
