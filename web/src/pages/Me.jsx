@@ -328,16 +328,6 @@ export default function Me() {
                 </label>
               ))}
             </div>
-            <div className="flex items-center gap-4">
-              <span className="text-xs text-ink-soft w-24 shrink-0">讲解上限</span>
-              <input
-                type="number"
-                className="field w-24 font-mono text-xs"
-                value={s.teach.max_explain_chars}
-                onChange={(e) => patchTeach('max_explain_chars', Number(e.target.value) || 300)}
-              />
-              <span className="text-xs text-ink-faint">字（防灌输硬约束）</span>
-            </div>
           </div>
         </div>
         <DocsCard />

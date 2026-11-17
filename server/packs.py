@@ -124,10 +124,12 @@ def save_tree(pack_id: str, tree: dict) -> None:
 
 
 def list_packs() -> list[dict[str, Any]]:
+    from . import curriculum
     out = []
     for pid, meta in PACKS.items():
         p = load_pack(pid)
-        out.append({**meta, "id": pid, "status": p["status"], "doc_count": p.get("doc_count", 0)})
+        out.append({**meta, "id": pid, "status": p["status"], "doc_count": p.get("doc_count", 0),
+                    "curated": curriculum.has_seed(pid)})
     return out
 
 
@@ -240,12 +242,23 @@ async def _install(pack_id: str) -> None:
 
         pack["status"] = "tree"
         save_pack(pack_id, pack)
-        tree = load_tree(pack_id)
-        if tree is None:
-            tree = await _generate_tree(pack)
+        from . import curriculum
+
+        if curriculum.has_seed(pack_id):
+            # 框架驱动：用人工设计的零基础主线确定性生成，AI 不决定课程结构。
+            # 每次安装都按最新蓝图重建（蓝图更新即生效），文档仅挂溯源 URL。
+            index = json.loads(idx_file.read_text(encoding="utf-8")) if idx_file.exists() else []
+            tree = curriculum.build_tree(pack_id, index)
             save_tree(pack_id, tree)
+            n_points = sum(len(sec["points"]) for mod in tree["modules"] for sec in mod["sections"])
+            log(pack, f"用零基础课程蓝图生成技能树：{len(tree['modules'])} 模块 / {n_points} 微知识点（确定性）")
         else:
-            log(pack, "复用已生成的技能树")
+            tree = load_tree(pack_id)
+            if tree is None:
+                tree = await _generate_tree(pack)
+                save_tree(pack_id, tree)
+            else:
+                log(pack, "复用已生成的技能树")
 
         pack["status"] = "ready"
         pack["installed_at"] = time.strftime("%Y-%m-%d %H:%M:%S")

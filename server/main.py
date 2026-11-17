@@ -13,7 +13,7 @@ from pydantic import BaseModel
 
 from . import auth, config, kb, llm, notes, packs, practice, runner, teach
 
-app = FastAPI(title="MyTutor", version="0.4.1")
+app = FastAPI(title="MyTutor", version="0.5.0")
 
 app.add_middleware(
     CORSMiddleware,
@@ -147,9 +147,11 @@ async def install_pack(pack_id: str):
 
 @app.get("/api/packs/{pack_id}")
 async def get_pack(pack_id: str):
+    from . import curriculum
     p = packs.load_pack(pack_id)
     p["tree"] = packs.load_tree(pack_id)
     p["progress"] = teach.progress(pack_id)
+    p["curated"] = curriculum.has_seed(pack_id)
     return p
 
 
@@ -244,7 +246,8 @@ class TeachStart(BaseModel):
 @app.post("/api/teach/{pack_id}/start")
 async def teach_start(pack_id: str, body: TeachStart):
     try:
-        return await teach.start(pack_id, body.point_id, restart=body.restart)
+        await teach.start(pack_id, body.point_id, restart=body.restart)
+        return teach.state(pack_id)
     except Exception as e:
         return _teach_err(e)
 
@@ -252,7 +255,8 @@ async def teach_start(pack_id: str, body: TeachStart):
 @app.post("/api/teach/{pack_id}/step")
 async def teach_step(pack_id: str):
     try:
-        return await teach.to_exercise(pack_id)
+        await teach.to_exercise(pack_id)
+        return teach.state(pack_id)
     except Exception as e:
         return _teach_err(e)
 
@@ -264,7 +268,8 @@ class TeachAsk(BaseModel):
 @app.post("/api/teach/{pack_id}/ask")
 async def teach_ask(pack_id: str, body: TeachAsk):
     try:
-        return await teach.ask(pack_id, body.question)
+        await teach.ask(pack_id, body.question)
+        return teach.state(pack_id)
     except Exception as e:
         return _teach_err(e)
 
@@ -272,7 +277,8 @@ async def teach_ask(pack_id: str, body: TeachAsk):
 @app.post("/api/teach/{pack_id}/clarify")
 async def teach_clarify(pack_id: str):
     try:
-        return await teach.clarify(pack_id)
+        await teach.clarify(pack_id)
+        return teach.state(pack_id)
     except Exception as e:
         return _teach_err(e)
 
@@ -284,7 +290,8 @@ class TeachSubmit(BaseModel):
 @app.post("/api/teach/{pack_id}/submit")
 async def teach_submit(pack_id: str, body: TeachSubmit):
     try:
-        return await teach.submit(pack_id, body.code)
+        await teach.submit(pack_id, body.code)
+        return teach.state(pack_id)
     except Exception as e:
         return _teach_err(e)
 
@@ -292,7 +299,8 @@ async def teach_submit(pack_id: str, body: TeachSubmit):
 @app.post("/api/teach/{pack_id}/retry")
 async def teach_retry(pack_id: str):
     try:
-        return await teach.retry(pack_id)
+        await teach.retry(pack_id)
+        return teach.state(pack_id)
     except Exception as e:
         return _teach_err(e)
 
@@ -300,7 +308,8 @@ async def teach_retry(pack_id: str):
 @app.post("/api/teach/{pack_id}/advance")
 async def teach_advance(pack_id: str):
     try:
-        return await teach.advance(pack_id)
+        await teach.advance(pack_id)
+        return teach.state(pack_id)
     except Exception as e:
         return _teach_err(e)
 

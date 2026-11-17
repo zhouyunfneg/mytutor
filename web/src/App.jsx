@@ -65,6 +65,7 @@ const NAV = [
 export default function App() {
   const [authed, setAuthed] = useState(null); // null= checking
   const [dueCount, setDueCount] = useState(0);
+  const [version, setVersion] = useState('');
   const location = useLocation();
 
   useEffect(() => {
@@ -72,6 +73,8 @@ export default function App() {
       .get('/api/me')
       .then((r) => setAuthed(r.authenticated || !r.has_password))
       .catch(() => setAuthed(false));
+    // 左下角版本号：运行时读 health，版本单一来源=server/main.py，提版本无需重build前端
+    api.get('/api/health').then((r) => setVersion(r.version || '')).catch(() => {});
     const on401 = () => setAuthed(false);
     window.addEventListener('mytutor:unauthorized', on401);
     return () => window.removeEventListener('mytutor:unauthorized', on401);
@@ -123,8 +126,8 @@ export default function App() {
             </NavLink>
           ))}
         </nav>
-        <div className="mt-auto text-[10px] text-ink-faint font-display tracking-widest">
-          MyTutor
+        <div className="mt-auto text-[10px] text-ink-faint font-mono" title="当前版本">
+          {version ? `v${version}` : ''}
         </div>
       </aside>
 

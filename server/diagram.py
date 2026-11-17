@@ -1,153 +1,115 @@
-"""SVG 示意图工具：讲解生成后自动判定是否需要图示，按严格契约生成并白名单校验。
+"""示意图工具：讲解生成后自动判定是否需要图示，改用 Mermaid 声明式结构 + 前端自动布局。
+
+为什么换掉手写 SVG：旧方案让模型写死每个方框/文字/箭头的绝对坐标，没有布局引擎，
+模型不擅长空间排版 → 文字重叠、方框错位、箭头乱穿（观感凌乱）。
+Mermaid 只让模型描述"结构"（节点/连线/标签/嵌套），由 dagre 布局引擎保证整齐对齐。
 
 契约（与全站配色纪律同源，见 web/src/index.css）：
-- 只允许色族内的颜色（暖纸中性 + 陶土红 + 灰绿 + 夜黑），纯矢量；
-- 禁脚本 / 事件属性 / style / 外链 / foreignObject / image / use；
-- 服务端用 stdlib XML 白名单校验，不合格带原因重试一次，仍不合格放弃图示（讲解不受影响）。
-对话侧同一契约打包为 Qoder skill：code-svg-diagram。
+- 模型只输出 flowchart TB/LR 结构，节点用 :::action/:::data/:::plain 三个语义类；
+- 色族 classDef 由服务端统一追加（暖纸底 + 陶土红动作 + 灰绿数据 + 墨文字），模型不写颜色；
+- 禁 click/href/style/classDef/linkStyle/脚本/外链；节点/连线/嵌套/标签字数设上限；
+- 服务端白名单校验，不合格带原因重试一次，仍不合格放弃图示（讲解不受影响）。
+前端 web/src/diagram.js 懒加载 mermaid 渲染；旧会话里已存的手写 SVG 仍按原样直出（向后兼容）。
+对话侧同一色族契约打包为 Qoder skill：code-svg-diagram（仍用 SVG）。
 """
 from __future__ import annotations
 
 import re
-import xml.etree.ElementTree as ET
 
 from . import llm
 from .config import load_settings
 
-SVG_NS = "http://www.w3.org/2000/svg"
+# 语义色族 classDef（hex 与 index.css 同源）：服务端统一追加，保证配色纪律
+MERMAID_CLS = (
+    "\n  classDef action fill:#d29a86,stroke:#9d5f50,color:#262219,stroke-width:1px;"
+    "\n  classDef data fill:#9dbba6,stroke:#5c7a67,color:#262219,stroke-width:1px;"
+    "\n  classDef plain fill:#fbf9f3,stroke:#d6cfc2,color:#262219,stroke-width:1px;"
+)
+ALLOWED_CLASSES = {"action", "data", "plain"}
 
-# 色族白名单（hex 小写）+ 无色
-PALETTE = {
-    "#f1eee6", "#e8e4d8", "#fbf9f3",          # 暖纸：底 / 深底 / 卡面
-    "#262219", "#5c564e", "#9a9287", "#d6cfc2",  # 墨：正文 / 次 / 淡 / 线
-    "#b3705f", "#9d5f50", "#d29a86",          # 陶土红：主 / 深 / 亮
-    "#6d8a77", "#5c7a67", "#9dbba6",          # 灰绿：主 / 深 / 亮
-    "#171310", "#241e18",                    # 夜黑：仅深色底
-    "none", "transparent",
-}
+MAX_NODES = 14
+MAX_EDGES = 16
+MAX_SUBGRAPH = 4
+MAX_DEPTH = 3
+MAX_LABEL = 18
+MAX_CHARS = 2400
 
-TAGS = {
-    "svg", "title", "desc", "defs", "g", "rect", "circle", "ellipse", "line",
-    "path", "polyline", "polygon", "text", "tspan", "marker",
-    "linearGradient", "radialGradient", "stop",
-}
-
-ATTRS = {
-    "id", "transform", "d", "x", "y", "x1", "y1", "x2", "y2", "cx", "cy",
-    "r", "rx", "ry", "width", "height", "points", "fill", "stroke",
-    "stroke-width", "stroke-linecap", "stroke-linejoin", "stroke-dasharray",
-    "opacity", "fill-opacity", "stroke-opacity", "font-size", "font-family",
-    "font-weight", "text-anchor", "dominant-baseline", "dx", "dy",
-    "viewBox", "xmlns", "preserveAspectRatio", "marker-end", "marker-start",
-    "offset", "stop-color", "stop-opacity", "gradientUnits", "gradientTransform",
-    "fx", "fy", "aria-hidden", "role", "orient", "markerWidth", "markerHeight",
-    "refX", "refY", "markerUnits", "overflow", "visibility",
-}
-
-# 出现即判不合格（安全相关），其余未知属性静默丢弃
-FORBIDDEN_ATTRS = {"style", "href", "xlink:href", "class"}
-
-COLOR_ATTRS = {"fill", "stroke", "stop-color"}
-URL_REF = re.compile(r"^url\(#[A-Za-z0-9_-]+\)$")
-FONTS = {"sans-serif", "monospace"}
-WEIGHTS = {"normal", "bold", "100", "200", "300", "400", "500", "600", "700", "800", "900"}
-
-MAX_BYTES = 60_000
-MAX_NODES = 240
-MAX_VIEW_W, MAX_VIEW_H = 720, 440
-MAX_LABEL = 40
+# 出现即判不合格（安全 / 配色 / 布局失控相关）
+FORBIDDEN = ("click", "href", "linkstyle", "classdef", "style ", "init:",
+             "%%", "javascript:", "<script", "url(", "```")
 
 DIAGRAM_PROMPT = """下面是一个编程微知识点的讲解。判断它是否需要一张示意图帮助理解
 （流程走向 / 变量与内存结构 / 调用关系 / 前后对比 / 结构层次 这类"文字说不清"的内容）。
-需要就画一张 SVG；不需要（纯概念一句话就懂）就只输出 NONE。
+需要就输出一段 Mermaid flowchart 结构；不需要（纯概念一句话就懂）就只输出 NONE。
 
 知识点：{title}
 目标：{goal}
 讲解：
 {explain}
 
-SVG 硬契约（违反即废）：
-1. 只输出 SVG 源码或 NONE，不要解释、不要代码围栏。
-2. 根元素 <svg viewBox="0 0 W H">，W≤720、H≤440，不写 width/height。
-3. 只用这些元素：svg title desc defs g rect circle ellipse line path polyline polygon text tspan marker linearGradient radialGradient stop。
-4. 颜色只能用下列值（fill/stroke/stop-color）：
-   暖纸 #f1eee6 #e8e4d8 #fbf9f3；墨 #262219 #5c564e #9a9287 #d6cfc2；
-   陶土红 #b3705f #9d5f50 #d29a86；灰绿 #6d8a77 #5c7a67 #9dbba6；夜黑 #171310 #241e18；none transparent。
-   语义：陶土红=当前/动作/强调，灰绿=完成/数据/通过，墨=文字与线，暖纸=底与卡片。
-5. 文字 font-size≥12、font-family 只用 sans-serif 或 monospace；每个标签≤10 个汉字；中文。
-6. 禁止 script/style/foreignObject/image/use/a、on* 事件属性、style 属性、任何外链。
-7. 元素总数≤60；布局留白充足，箭头用 marker 或 path 手绘；图要一眼看懂，不堆装饰。"""
+Mermaid 硬契约（违反即废）：
+1. 只输出 Mermaid 源码或 NONE，不要解释、不要代码围栏。
+2. 第一行只能是 flowchart TB 或 flowchart LR（上下 / 左右布局二选一）。
+3. 节点写法 id["中文标签"]，标签≤12 个汉字；id 用短英文字母。
+4. 语义类只用三个：:::action（当前/动作/强调）、:::data（数据/完成/通过）、:::plain（普通）。
+   例：A["浏览器"]:::plain  B["执行 JS"]:::action
+5. 连线用 -->（有向）或 ---（无向）；连线标签用 -- "文字" --> 或 -->|文字|，标签≤10 字。
+6. 嵌套容器用 subgraph id["标题"] ... end，最多 3 层、最多 4 个容器（适合盒模型/包含关系）。
+7. 节点≤12 个、连线≤14 条；图要一眼看懂，不堆装饰。
+8. 禁止 click / href / style / classDef / linkStyle / 脚本 / 外链 / 颜色值（颜色由系统统一加）。"""
 
 
-def _local(name: str) -> str:
-    return name.split("}")[-1]
-
-
-def validate_svg(text: str) -> tuple[bool, str]:
-    """白名单校验。合格返回 (True, 清理后的 SVG)；不合格返回 (False, 原因)。"""
-    if len(text.encode("utf-8")) > MAX_BYTES:
-        return False, f"SVG 超过 {MAX_BYTES} 字节"
-    if "<!DOCTYPE" in text or "<!ENTITY" in text:
-        return False, "含 DOCTYPE/ENTITY"
-    try:
-        root = ET.fromstring(text)
-    except ET.ParseError as e:
-        return False, f"XML 解析失败: {e}"
-    if _local(root.tag) != "svg":
-        return False, "根元素不是 svg"
-    vb = (root.get("viewBox") or "").replace(",", " ").split()
-    if len(vb) != 4:
-        return False, "缺少合法 viewBox"
-    try:
-        _, _, w, h = (float(v) for v in vb)
-    except ValueError:
-        return False, "viewBox 非数字"
-    if not (0 < w <= MAX_VIEW_W and 0 < h <= MAX_VIEW_H):
-        return False, f"viewBox 尺寸越界（≤{MAX_VIEW_W}×{MAX_VIEW_H}）"
-
-    nodes = 0
-    for el in root.iter():
-        nodes += 1
-        if nodes > MAX_NODES:
-            return False, f"元素超过 {MAX_NODES} 个"
-        tag = _local(el.tag)
-        if tag not in TAGS:
-            return False, f"禁用元素 <{tag}>"
-        for attr in list(el.attrib):
-            name = _local(attr)
-            low = name.lower()
-            if low.startswith("on") or name in FORBIDDEN_ATTRS:
-                return False, f"禁用属性 {name}"
-            if name not in ATTRS:
-                del el.attrib[attr]
-                continue
-            val = (el.attrib[attr] or "").strip()
-            if name in COLOR_ATTRS:
-                v = val.lower()
-                if v not in PALETTE and not URL_REF.match(v):
-                    return False, f"色族外颜色 {val}（{name}）"
-            if name == "font-size":
-                try:
-                    if float(val) < 12:
-                        return False, f"字号 {val} 小于 12"
-                except ValueError:
-                    return False, f"字号非数字 {val}"
-            if name == "font-family" and val not in FONTS:
-                return False, f"字体 {val} 不在 sans-serif/monospace"
-            if name == "font-weight" and val not in WEIGHTS:
-                return False, f"字重 {val} 不合法"
-        if tag in ("text", "tspan"):
-            if not el.get("font-size"):
-                el.set("font-size", "13")
-            if not el.get("font-family"):
-                el.set("font-family", "sans-serif")
-            for piece in (el.text, el.tail):
-                if piece and len(piece.strip()) > MAX_LABEL:
-                    return False, "文字标签超过 40 字"
-    root.attrib.pop("width", None)
-    root.attrib.pop("height", None)
-    ET.register_namespace("", SVG_NS)
-    return True, ET.tostring(root, encoding="unicode")
+def validate_mermaid(text: str) -> tuple[bool, str]:
+    """白名单校验。合格返回 (True, 追加色族 classDef 后的 spec)；不合格返回 (False, 原因)。"""
+    t = (text or "").strip()
+    if not t:
+        return False, "空内容"
+    if len(t) > MAX_CHARS:
+        return False, f"超过 {MAX_CHARS} 字符"
+    low = t.lower()
+    for tok in FORBIDDEN:
+        if tok in low:
+            return False, f"禁用内容 {tok.strip()}"
+    lines = [ln.strip() for ln in t.splitlines() if ln.strip()]
+    if not re.fullmatch(r"flowchart\s+(TB|LR)", lines[0], re.IGNORECASE):
+        return False, "首行必须是 flowchart TB 或 flowchart LR"
+    # 嵌套深度与容器数
+    depth = 0
+    n_sub = 0
+    for ln in lines[1:]:
+        if ln.lower().startswith("subgraph"):
+            n_sub += 1
+            depth += 1
+            if depth > MAX_DEPTH:
+                return False, f"嵌套超过 {MAX_DEPTH} 层"
+            if n_sub > MAX_SUBGRAPH:
+                return False, f"容器超过 {MAX_SUBGRAPH} 个"
+        elif ln.lower() == "end":
+            depth -= 1
+            if depth < 0:
+                return False, "end 与 subgraph 不配对"
+    if depth != 0:
+        return False, "subgraph 未闭合"
+    # 语义类白名单
+    for cls in re.findall(r":::([A-Za-z0-9_]+)", t):
+        if cls not in ALLOWED_CLASSES:
+            return False, f"语义类 {cls} 不在 action/data/plain"
+    # 节点 / 连线 / 标签
+    labels = re.findall(r'\["([^"]*)"\]', t)
+    labels += re.findall(r'--\s*"([^"]*)"\s*-->', t)
+    labels += [x.strip() for x in re.findall(r"\|([^|]*)\|", t)]
+    n_nodes = len(re.findall(r'\["', t))
+    n_edges = len(re.findall(r"-->|---", t))
+    if n_nodes == 0:
+        return False, "没有节点"
+    if n_nodes > MAX_NODES:
+        return False, f"节点超过 {MAX_NODES} 个"
+    if n_edges > MAX_EDGES:
+        return False, f"连线超过 {MAX_EDGES} 条"
+    for lb in labels:
+        if len(lb.strip()) > MAX_LABEL:
+            return False, f"标签超过 {MAX_LABEL} 字：{lb[:12]}…"
+    return True, t + MERMAID_CLS
 
 
 def _extract(raw: str) -> str | None:
@@ -156,29 +118,30 @@ def _extract(raw: str) -> str | None:
     t = re.sub(r"\s*```$", "", t)
     if t.upper().startswith("NONE"):
         return None
-    i, j = t.find("<svg"), t.rfind("</svg>")
-    if i < 0 or j < 0:
-        return None
-    return t[i:j + 6]
+    i = t.lower().find("flowchart")
+    if i >= 0:
+        return t[i:]
+    # 不含 flowchart 的杂散输出：交给校验判不合格并触发重试，而非误当"不需要图"
+    return t or None
 
 
 async def maybe_diagram(title: str, goal: str, explain: str) -> str | None:
-    """自动调用入口：需要图就返回校验过的 SVG，不需要或两次不合格返回 None。"""
+    """自动调用入口：需要图就返回校验过的 Mermaid spec，不需要或两次不合格返回 None。"""
     model = load_settings()["models"]["task"]
     messages = [{"role": "user", "content": DIAGRAM_PROMPT.format(
         title=title, goal=goal, explain=explain[:2000])}]
-    raw = await llm.chat(messages, model=model, temperature=0.3, max_tokens=1600)
+    raw = await llm.chat(messages, model=model, temperature=0.3, max_tokens=900)
     for attempt in range(2):
-        svg = _extract(raw)
-        if svg is None:
+        spec = _extract(raw)
+        if spec is None:
             return None
-        ok, res = validate_svg(svg)
+        ok, res = validate_mermaid(spec)
         if ok:
             return res
         if attempt == 0:
             messages += [
                 {"role": "assistant", "content": raw},
-                {"role": "user", "content": f"校验不合格：{res}。按契约重新生成 SVG，或输出 NONE。"},
+                {"role": "user", "content": f"校验不合格：{res}。按契约重新生成 Mermaid，或输出 NONE。"},
             ]
-            raw = await llm.chat(messages, model=model, temperature=0.2, max_tokens=1600)
+            raw = await llm.chat(messages, model=model, temperature=0.2, max_tokens=900)
     return None

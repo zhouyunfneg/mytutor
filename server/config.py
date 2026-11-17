@@ -28,8 +28,7 @@ DEFAULTS: dict[str, Any] = {
     },
     "teach": {
         "style": "guide",  # guide=先引导后答案 | direct=直接讲清楚
-        "max_explain_chars": 300,
-        "max_example_lines": 15,
+        "max_example_lines": 15,  # 反灌输锁=最小知识点范围（见 teach._explain_system），不再限正文字数
     },
 }
 

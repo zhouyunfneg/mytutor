@@ -233,7 +233,17 @@ export default function Learn() {
                   : LANG_INTRO
                 ).map((l) => (
                   <div key={l.id} className="rounded-xl border border-line/70 bg-paper-deep/50 px-4 py-3">
-                    <div className="font-display text-[15px] font-bold">{l.name}</div>
+                    <div className="flex items-center gap-1.5">
+                      <span className="font-display text-[15px] font-bold">{l.name}</span>
+                      {(packsMeta || []).some((p) => p.id === l.id && p.curated) && (
+                        <span
+                          className="shrink-0 text-[9px] font-medium px-1.5 py-0.5 rounded-full border border-pine/35 text-pine bg-pine/10"
+                          title="按零基础教程蓝图精编的完整学习主线"
+                        >
+                          精编
+                        </span>
+                      )}
+                    </div>
                     <p className="text-[13px] leading-6 text-ink-soft mt-1">{l.blurb}</p>
                   </div>
                 ))}

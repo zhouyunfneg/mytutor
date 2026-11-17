@@ -145,7 +145,17 @@ export default function PackPanel({ onSelectPack, onResume, onRestart, onDetailC
         {/* 书头：名称 + 进度 + 主行动 */}
         <div className="border border-line rounded-lg bg-card/60 px-3 py-2.5 mb-3">
           <div className="flex items-baseline justify-between gap-2">
-            <h2 className="font-display text-base font-bold">{bookName}</h2>
+            <span className="flex items-baseline gap-1.5 min-w-0">
+              <h2 className="font-display text-base font-bold truncate">{bookName}</h2>
+              {detail.curated && (
+                <span
+                  className="shrink-0 text-[9px] font-medium px-1.5 py-0.5 rounded-full border border-pine/35 text-pine bg-pine/10"
+                  title="按零基础教程蓝图精编的完整学习主线"
+                >
+                  精编
+                </span>
+              )}
+            </span>
             <span className={`text-[10px] ${meta.cls}`}>{meta.label}</span>
           </div>
           {detail.tree && (
@@ -282,13 +292,23 @@ export default function PackPanel({ onSelectPack, onResume, onRestart, onDetailC
             return (
               <div key={p.id} className="border border-line rounded-lg px-3 py-2.5 bg-card/50">
                 <div className="flex items-center justify-between gap-2">
-                  <button
-                    className="text-sm font-medium font-mono hover:text-cinnabar transition-colors text-left"
-                    onClick={() => openDetail(p.id)}
-                    title="打开学习书"
-                  >
-                    {p.name}
-                  </button>
+                  <span className="flex items-center gap-1.5 min-w-0">
+                    <button
+                      className="text-sm font-medium font-mono hover:text-cinnabar transition-colors text-left truncate"
+                      onClick={() => openDetail(p.id)}
+                      title="打开学习书"
+                    >
+                      {p.name}
+                    </button>
+                    {p.curated && (
+                      <span
+                        className="shrink-0 text-[9px] font-medium px-1.5 py-0.5 rounded-full border border-pine/35 text-pine bg-pine/10"
+                        title="按零基础教程蓝图精编的完整学习主线"
+                      >
+                        精编
+                      </span>
+                    )}
+                  </span>
                   {p.status !== 'ready' && (
                     <span className={`text-[10px] whitespace-nowrap ${st.cls}`}>
                       {active && <span className="inline-block animate-pulse">● </span>}

@@ -1,10 +1,19 @@
 import { useEffect, useRef, useState } from 'react';
 import { api } from '../api.js';
 import Rich from './Rich.jsx';
+import Diagram from './Diagram.jsx';
 
 const LOGO = `${import.meta.env.BASE_URL}logo.svg`;
 
 const STEPS = ['讲解', '出题', '纠错', '巩固'];
+// 问答面板按提问时所处阶段分组（旧会话无 step 字段 → 归入"之前的问答"）
+const QA_STEP_LABEL = {
+  explain: '讲解时问过',
+  exercise: '出题时问过',
+  correcting: '纠错时问过',
+  consolidate: '巩固时问过',
+  consolidate_correcting: '巩固时问过',
+};
 const STEP_IDX = {
   explain: 0,
   exercise: 1,
@@ -28,14 +37,20 @@ export default function TeachCard({ packId, session, refresh, code, onLoadStarte
   const [askErr, setAskErr] = useState(null);
   const [pendingQ, setPendingQ] = useState(null);
   const [clarifying, setClarifying] = useState(false);
+  // 正文双页签：content=讲解/题目，qa=问老师独立面板；问答不再和题面混排
+  const [bodyTab, setBodyTab] = useState('content');
   const qaEndRef = useRef(null);
   const taRef = useRef(null);
 
   const qaCount = session?.qa?.length || 0;
-  // 新问答出现时滚到视野底部
+  // 新问答出现时滚到视野底部（仅在问答页签激活时）
   useEffect(() => {
-    if (qaCount || pendingQ) qaEndRef.current?.scrollIntoView({ block: 'nearest' });
-  }, [qaCount, pendingQ]);
+    if (bodyTab === 'qa' && (qaCount || pendingQ)) qaEndRef.current?.scrollIntoView({ block: 'nearest' });
+  }, [qaCount, pendingQ, bodyTab]);
+  // 阶段/知识点变化（出题、纠错、巩固、下一个点）→ 切回内容页签，题面与提示优先可见
+  const stepNow = session?.step;
+  const pointNow = session?.point_id;
+  useEffect(() => { setBodyTab('content'); }, [stepNow, pointNow]);
   // 提问框随内容长高（上限 112px），清空后复位；未超上限不露滚动条
   useEffect(() => {
     const el = taRef.current;
@@ -54,6 +69,7 @@ export default function TeachCard({ packId, session, refresh, code, onLoadStarte
     setAskErr(null);
     setPendingQ(q);
     setQuestion('');
+    setBodyTab('qa'); // 提问即切到问答页签，思考中与回答都在独立面板里看
     try {
       const r = await api.post(`/api/teach/${packId}/ask`, { question: q });
       if (r && r.ok === false) setAskErr(r.error);
@@ -123,6 +139,11 @@ export default function TeachCard({ packId, session, refresh, code, onLoadStarte
   const ex = s.step.startsWith('consolidate') ? s.consolidate : s.exercise;
   const isCorrecting = s.step === 'correcting' || s.step === 'consolidate_correcting';
   const inTask = ['exercise', 'consolidate', 'correcting', 'consolidate_correcting'].includes(s.step);
+  // 讲解 + 做题诸阶段都可「问老师」，随时遇到疑问随时问
+  const askable = s.step === 'explain' || inTask;
+  // 有问答（或正在提问）才出现页签；否则正文直接渲染内容，不加空页签噪音
+  const qaVisible = askable && (qaCount > 0 || !!pendingQ);
+  const tab = qaVisible ? bodyTab : 'content';
 
   // 底栏动作：每个步骤一个主动作，固定在卡片底部，不随正文滚动
   let actions = null;
@@ -135,7 +156,7 @@ export default function TeachCard({ packId, session, refresh, code, onLoadStarte
   } else if (inTask && ex) {
     actions = (
       <div className="flex items-center gap-3 flex-wrap">
-        <button className="btn-seal px-6 py-2.5 text-sm" disabled={busy} onClick={() => call('submit', { code })}>
+        <button className="btn-seal px-6 py-2.5 text-sm" disabled={busy || asking} onClick={() => call('submit', { code })}>
           {busy ? '判题中…' : isCorrecting ? '改好了，再提交' : '提交答案'}
         </button>
         <button className="btn-ghost px-4 py-2 text-xs" disabled={clarifying || busy} onClick={clarifyTask}>
@@ -162,6 +183,57 @@ export default function TeachCard({ packId, session, refresh, code, onLoadStarte
       </button>
     );
   }
+
+  // 师生问答独立面板：只在「问老师」页签渲染，按提问阶段分组；跨阶段保留（start 新点才清空）
+  const qaGroupLabel = (step) => QA_STEP_LABEL[step] || '之前的问答';
+  const qaPanel = (
+    <div className="flex flex-col gap-4">
+      <div className="text-[11px] tracking-widest text-ink-faint">问老师 · 只围绕这个点</div>
+      {(s.qa || []).map((item, i) => {
+        const prev = i > 0 ? (s.qa[i - 1].step || '') : null;
+        const cur = item.step || '';
+        return (
+          <div key={i} className="flex flex-col gap-2">
+            {cur !== prev && (
+              <div className="flex items-center gap-2.5 text-[10px] tracking-widest text-ink-faint">
+                <span className="w-4 h-px bg-line" />
+                {qaGroupLabel(item.step)}
+                <span className="flex-1 h-px bg-line/70" />
+              </div>
+            )}
+            <div className="self-end max-w-[85%] bg-paper-deep/70 border border-line/70 rounded-xl rounded-br-sm px-3.5 py-2 text-[14px] leading-7 text-ink whitespace-pre-wrap">
+              {item.q}
+            </div>
+            <div className="self-start max-w-[94%] flex flex-col gap-1.5">
+              <span className="text-[11px] tracking-widest text-pine-deep">老师</span>
+              <div className="bg-card/70 border border-line/70 rounded-xl rounded-bl-sm px-4 py-3 shadow-sm">
+                <Rich text={item.a} onLoadCode={onLoadStarter} />
+              </div>
+            </div>
+          </div>
+        );
+      })}
+      {pendingQ && (
+        <div className="flex flex-col gap-2">
+          {((s.qa || []).length === 0 || (s.qa[s.qa.length - 1].step || '') !== s.step) && (
+            <div className="flex items-center gap-2.5 text-[10px] tracking-widest text-ink-faint">
+              <span className="w-4 h-px bg-line" />
+              {qaGroupLabel(s.step)}
+              <span className="flex-1 h-px bg-line/70" />
+            </div>
+          )}
+          <div className="self-end max-w-[85%] bg-paper-deep/70 border border-line/70 rounded-xl rounded-br-sm px-3.5 py-2 text-[14px] leading-7 text-ink whitespace-pre-wrap">
+            {pendingQ}
+          </div>
+          <div className="self-start inline-flex items-center gap-2 text-[13px] text-ink-faint">
+            <span className="inline-block w-1.5 h-1.5 rounded-full bg-pine animate-pulse" />
+            老师思考中…
+          </div>
+        </div>
+      )}
+      <div ref={qaEndRef} />
+    </div>
+  );
 
   return (
     <div className="flex-1 min-h-0 flex flex-col">
@@ -196,6 +268,29 @@ export default function TeachCard({ packId, session, refresh, code, onLoadStarte
         )}
       </div>
 
+      {/* 正文页签：内容（讲解/题目）与问老师分开，互不混排；有问答才出现 */}
+      {qaVisible && (
+        <div className="shrink-0 flex items-center gap-6 px-1 pt-3">
+          <button
+            type="button"
+            onClick={() => setBodyTab('content')}
+            className={`pb-2 text-[13px] border-b-2 transition-colors ${tab === 'content' ? 'border-cinnabar text-ink font-medium' : 'border-transparent text-ink-faint hover:text-ink-soft'}`}
+          >
+            {s.step === 'explain' ? '讲解' : '题目'}
+          </button>
+          <button
+            type="button"
+            onClick={() => setBodyTab('qa')}
+            className={`pb-2 text-[13px] border-b-2 inline-flex items-center gap-1.5 transition-colors ${tab === 'qa' ? 'border-cinnabar text-ink font-medium' : 'border-transparent text-ink-faint hover:text-ink-soft'}`}
+          >
+            问老师
+            {qaCount > 0 && (
+              <span className="px-1.5 py-px rounded-full bg-paper-deep border border-line/70 text-[10px] text-ink-soft">{qaCount}</span>
+            )}
+          </button>
+        </div>
+      )}
+
       {/* 正文：限宽 680，内容短时垂直居中，长内容自然滚动 */}
       <div className="flex-1 min-h-0 overflow-y-auto py-6 px-1 flex">
         <div className="m-auto w-full max-w-[680px] flex flex-col gap-6">
@@ -205,51 +300,16 @@ export default function TeachCard({ packId, session, refresh, code, onLoadStarte
             </div>
           )}
 
-          {s.step === 'explain' && (
+          {tab === 'qa' && qaPanel}
+
+          {tab === 'content' && s.step === 'explain' && (
             <>
               <Rich text={s.explain} onLoadCode={onLoadStarter} />
-              {s.diagram && (
-                <figure className="diagram rounded-xl border border-line/80 bg-card/70 px-4 pt-3 pb-4 shadow-sm">
-                  <figcaption className="text-[11px] tracking-widest text-ink-faint mb-2.5">
-                    示意图 · AI 绘制，帮助理解
-                  </figcaption>
-                  <div dangerouslySetInnerHTML={{ __html: s.diagram }} />
-                </figure>
-              )}
-              {(qaCount > 0 || pendingQ) && (
-                <div className="flex flex-col gap-4 border-t border-line/50 pt-5">
-                  <div className="text-[11px] tracking-widest text-ink-faint">问老师 · 只围绕这个点</div>
-                  {(s.qa || []).map((item, i) => (
-                    <div key={i} className="flex flex-col gap-2">
-                      <div className="self-end max-w-[85%] bg-paper-deep/70 border border-line/70 rounded-xl rounded-br-sm px-3.5 py-2 text-[14px] leading-7 text-ink whitespace-pre-wrap">
-                        {item.q}
-                      </div>
-                      <div className="self-start max-w-[94%] flex flex-col gap-1.5">
-                        <span className="text-[11px] tracking-widest text-pine-deep">老师</span>
-                        <div className="bg-card/70 border border-line/70 rounded-xl rounded-bl-sm px-4 py-3 shadow-sm">
-                          <Rich text={item.a} onLoadCode={onLoadStarter} />
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                  {pendingQ && (
-                    <div className="flex flex-col gap-2">
-                      <div className="self-end max-w-[85%] bg-paper-deep/70 border border-line/70 rounded-xl rounded-br-sm px-3.5 py-2 text-[14px] leading-7 text-ink whitespace-pre-wrap">
-                        {pendingQ}
-                      </div>
-                      <div className="self-start inline-flex items-center gap-2 text-[13px] text-ink-faint">
-                        <span className="inline-block w-1.5 h-1.5 rounded-full bg-pine animate-pulse" />
-                        老师思考中…
-                      </div>
-                    </div>
-                  )}
-                  <div ref={qaEndRef} />
-                </div>
-              )}
+              <Diagram spec={s.diagram} />
             </>
           )}
 
-          {inTask && ex && (
+          {tab === 'content' && inTask && ex && (
             <>
               <div className="bg-paper-deep/60 border border-line rounded-xl px-5 py-4">
                 <div className="text-[11px] tracking-widest text-ink-faint mb-2">
@@ -310,8 +370,8 @@ export default function TeachCard({ packId, session, refresh, code, onLoadStarte
         </div>
       </div>
 
-      {/* 讲解阶段：提问框，像老师一样互动；问完再点下方「出题」 */}
-      {s.step === 'explain' && (
+      {/* 讲解 + 做题诸阶段：提问框，像老师一样互动；问完再点下方主动作 */}
+      {askable && (
         <div className="shrink-0 border-t border-line/60 pt-3">
           {askErr && (
             <div className="text-xs text-cinnabar bg-cinnabar/5 border border-cinnabar/30 rounded-lg px-3 py-2 mb-2">
@@ -323,7 +383,7 @@ export default function TeachCard({ packId, session, refresh, code, onLoadStarte
               ref={taRef}
               rows={1}
               className="field flex-1 resize-none text-[14px] leading-6 overflow-y-hidden"
-              placeholder="对这个点有疑问？问老师…"
+              placeholder={inTask ? '做题卡住了？问老师…' : '对这个点有疑问？问老师…'}
               value={question}
               disabled={asking}
               onChange={(e) => setQuestion(e.target.value)}
@@ -342,9 +402,9 @@ export default function TeachCard({ packId, session, refresh, code, onLoadStarte
 
       {/* 底栏：主动作始终可见 */}
       {actions && (
-        <div className={`shrink-0 flex items-center ${s.step === 'explain' ? 'pt-3' : 'border-t border-line/60 pt-4'}`}>
+        <div className={`shrink-0 flex items-center ${askable ? 'pt-3' : 'border-t border-line/60 pt-4'}`}>
           {actions}
-          {s.step === 'explain' && <span className="ml-3 text-[11px] text-ink-faint">问完再出题</span>}
+          {askable && <span className="ml-3 text-[11px] text-ink-faint">{s.step === 'explain' ? '问完再出题' : '问完再提交'}</span>}
         </div>
       )}
     </div>

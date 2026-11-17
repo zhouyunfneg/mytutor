@@ -75,13 +75,19 @@ def _module_points(tree: dict, p: dict) -> list[dict]:
 def _explain_system() -> str:
     t = load_settings()["teach"]
     return (
-        "你是 MyTutor 的编程微课老师。铁律：\n"
-        f"1. 只讲当前这一个微知识点，不展开相邻知识点，不给知识总览，不铺垫后续内容；\n"
-        f"2. 讲解正文不超过 {t['max_explain_chars']} 字；\n"
-        f"3. 最多一个代码示例，不超过 {t['max_example_lines']} 行；\n"
-        "4. 中文口语化、直给，不要开场白和结尾套话；\n"
-        "5. 以官方资料摘录为准，资料没写的 API 细节不要编造；\n"
-        "6. 命令行示例给通用写法（如 python / py），不要假定学习者装了某个特定小版本。"
+        "你是 MyTutor 的编程微课老师，面对的是纯零基础、第一次学这门语言的学习者，默认他没有任何前置知识。铁律：\n"
+        f"1. 只讲课程里最小的这一个知识点，把它讲透即止：不展开相邻或后续知识点，不给知识总览，不铺垫后面内容；\n"
+        f"2. 最多一个代码示例、不超过 {t['max_example_lines']} 行；示例只演示当前点，当前点没讲到的语法或结构一律不进示例；正文篇幅以讲透当前点为准，不灌水、不堆砌，也不为凑字数硬压缩铺垫；\n"
+        "3. 中文大白话、口语化、直给，不要开场白和结尾套话，不要文档腔；\n"
+        "4. 按四段自然衔接组织（不要写“第一段/①”这类标签，直接讲）：\n"
+        "   为什么需要它——从学习者熟悉的生活经验打个比方，一句话说清这个点解决什么问题；\n"
+        "   最小概念——只讲够用的核心，术语第一次出现要顺手用大白话解释；\n"
+        "   逐行拆解——给一个最小示例，逐行说每行在做什么，不甩整段代码让人自己猜；\n"
+        "   易错提醒——收尾点一个新手常踩的坑；\n"
+        "5. 讲标签或概念先讲“它表达什么意思、做什么”，再讲默认外观，别把语义当成样式（如 h1 是“最高级标题”不是“加粗变大”）；\n"
+        "6. 用到先修概念时带一句话回顾，帮学习者接上前面学过的；\n"
+        "7. 官方资料摘录只用来核对事实与写法对不对，不要照搬它的表述；基础铺垫由你补，资料没写的 API 细节不要编造；\n"
+        "8. 命令行示例给通用写法，不假定学习者装了某个特定小版本。"
     )
 
 
@@ -94,6 +100,7 @@ EXERCISE_PROMPT = """为下面的微知识点出 1 道动手小题。
 
 知识点：{title}
 目标：{goal}
+为什么学：{why}
 讲解内容：
 {explain}
 
@@ -102,7 +109,8 @@ EXERCISE_PROMPT = """为下面的微知识点出 1 道动手小题。
 只输出 JSON，格式：
 {{"task": "题面，中文，≤120字，说清要写什么代码", "starter": "给学习者的起始代码（可为空字符串）", "judge": {judge_schema}}}
 {judge_rules}
-题目只考当前这一个知识点，5 分钟内能做完。"""
+题目只考当前这一个知识点，5 分钟内能做完。
+面向零基础：题面具体可操作、不绕弯；starter 给好骨架降低动手门槛（留关键空让学习者填，别替他写完）；检查项贴合新手能独立完成的小任务，不考偏门细节。"""
 
 SANDBOX_SCHEMA = '{"mode": "sandbox", "append": "判题代码字符串"}'
 AI_SCHEMA = '{"mode": "ai", "checklist": ["检查项1", "..."]}'
@@ -154,12 +162,21 @@ ASK_PROMPT = """当前微知识点：{title}
 已讲内容：
 {explain}
 
+当前学习状态：
+{context}
+
 官方资料摘录：
 {rag}
 
 学习者的问题：{question}
 
 像老师一样直接解答这个问题。"""
+
+# 做题/纠错/巩固阶段追加锁：可讲概念与思路、解释报错，但绝不给本题答案或判题断言
+ASK_TASK_EXTRA = (
+    "\n6. 学习者当前在做题/纠错/巩固：只讲概念、题意与思路方向，可解释报错含义；"
+    "绝不给这道题的答案代码、完整实现或判题断言；小示例只能用于讲概念，不能就是本题答案。"
+)
 
 CLARIFY_SYSTEM = (
     "你是 MyTutor 的编程微课老师。学习者读不懂题面，你帮他把题目读明白，而不是替他做。铁律：\n"
@@ -296,15 +313,29 @@ async def start(pack_id: str, point_id: str | None = None, *, restart: bool = Fa
         save_session(s)
         return s
     rag = await kb.search(pack_id, f"{p['title']} {p['goal']}", top_k=3)
+    # 零基础上下文：先修点 + 已学点回顾 + 为什么学 + 难度，让讲解知道学习者前面学过啥
+    title_by_id = {x["id"]: x["title"] for x in flatten(tree)}
+    prereq_titles = [title_by_id[i] for i in p.get("prereq", []) if i in title_by_id]
+    done_titles = [title_by_id[i] for i in s.get("done_points", []) if i in title_by_id][-6:]
+    why = p.get("why", "")
+    level = p.get("level", "入门")
+    user_prompt = (
+        f"微知识点：{p['title']}\n目标：{p['goal']}\n"
+        + (f"为什么学：{why}\n" if why else "")
+        + f"难度：{level}\n"
+        + f"先修点：{'、'.join(prereq_titles) if prereq_titles else '无（这是起点）'}\n"
+        + f"学习者已学过：{'、'.join(done_titles) if done_titles else '还没学过任何点，这是第一节课'}\n\n"
+        + f"官方资料摘录（仅核对事实，勿照搬表述）：\n{rag['content'][:4000]}"
+    )
     explain = await llm.chat(
         [
             {"role": "system", "content": _explain_system()},
-            {"role": "user", "content": f"微知识点：{p['title']}\n目标：{p['goal']}\n\n官方资料摘录：\n{rag['content'][:4000]}"},
+            {"role": "user", "content": user_prompt},
         ],
         temperature=0.4,
         max_tokens=900,
     )
-    # 示意图自动调用：需要图就生成（白名单校验+一次重试），失败降级为无图，不影响讲解
+    # 示意图自动调用：需要图就生成 Mermaid 结构（白名单校验+一次重试），失败降级为无图，不影响讲解
     diagram_svg = None
     try:
         diagram_svg = await diagram.maybe_diagram(p["title"], p["goal"], explain.strip())
@@ -327,7 +358,7 @@ async def to_exercise(pack_id: str) -> dict:
     desc, schema, _ = _judge_spec(pack_id)
     raw = await llm.chat(
         [{"role": "user", "content": EXERCISE_PROMPT.format(
-            title=p["title"], goal=p["goal"], explain=s["explain"], judge_desc=desc,
+            title=p["title"], goal=p["goal"], why=p.get("why", ""), explain=s["explain"], judge_desc=desc,
             judge_schema=schema, judge_rules=JUDGE_RULES)}],
         temperature=0.5,
         max_tokens=1500,
@@ -341,13 +372,15 @@ async def to_exercise(pack_id: str) -> dict:
 
 
 async def ask(pack_id: str, question: str) -> dict:
-    """讲解阶段像老师一样答疑：只围绕当前点，简洁，不灌输相邻点，不给后续答案。
+    """像老师一样答疑：讲解/出题/纠错/巩固阶段都可问，只围绕当前点，简洁，不灌输相邻点。
 
-    问答存进会话 qa（最多留 8 轮），刷新/换电脑仍在；进入出题阶段后前端不再显示提问框。
+    做题阶段追加"不给本题答案/判题断言"锁，并把当前题面/纠错提示/运行结果喂给模型作上下文
+    （不喂 judge/append，防判题泄漏）。问答存进会话 qa（最多留 8 轮），跨阶段保留、start 新点清空。
     """
     s = load_session(pack_id)
-    if not s or s.get("step") != "explain":
-        raise ValueError("提问只在讲解阶段可用")
+    step = (s or {}).get("step")
+    if step not in ("explain", "exercise", "correcting", "consolidate", "consolidate_correcting"):
+        raise ValueError("提问只在讲解/出题/纠错/巩固阶段可用")
     q = (question or "").strip()
     if not q:
         raise ValueError("问题不能为空")
@@ -356,6 +389,22 @@ async def ask(pack_id: str, question: str) -> dict:
     p = find_point(tree, s["point_id"])
     if not p:
         raise ValueError("当前知识点不存在")
+    if step == "explain":
+        context = "讲解阶段，尚未出题。"
+        system = ASK_SYSTEM
+    else:
+        is_cons = step.startswith("consolidate")
+        ex = s.get("consolidate") if is_cons else s.get("exercise")
+        parts = []
+        if ex and ex.get("task"):
+            parts.append(f"{'巩固变式题' if is_cons else '动手小题'}：{ex['task']}")
+        if step in ("correcting", "consolidate_correcting"):
+            if s.get("hint"):
+                parts.append(f"已给纠错提示：{s['hint']}")
+            if s.get("last_output"):
+                parts.append(f"最近一次运行结果：{str(s['last_output'])[:500]}")
+        context = "\n".join(parts) or "做题阶段。"
+        system = ASK_SYSTEM + ASK_TASK_EXTRA
     rag_content = ""
     try:
         rag = await kb.search(pack_id, q, top_k=2)
@@ -364,16 +413,16 @@ async def ask(pack_id: str, question: str) -> dict:
         rag_content = ""  # 检索失败降级：仍靠已讲内容作答，不阻断答疑
     answer = await llm.chat(
         [
-            {"role": "system", "content": ASK_SYSTEM},
+            {"role": "system", "content": system},
             {"role": "user", "content": ASK_PROMPT.format(
                 title=p["title"], goal=p["goal"], explain=s.get("explain", ""),
-                rag=rag_content or "（无）", question=q)},
+                context=context, rag=rag_content or "（无）", question=q)},
         ],
         temperature=0.4,
         max_tokens=700,
     )
     qa = s.get("qa") or []
-    qa.append({"q": q, "a": answer.strip()})
+    qa.append({"q": q, "a": answer.strip(), "step": step})
     s["qa"] = qa[-8:]
     save_session(s)
     return s

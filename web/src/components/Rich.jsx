@@ -1,18 +1,29 @@
-// 轻量富文本：段落 + 列表 + ``` 代码块 + `行内代码`（讲解与笔记共用）。
+// 轻量富文本：段落 + 列表 + 标题 + ``` 代码块 + `行内代码` + **加粗**/*斜体*（讲解与笔记共用）。
 // 排版契约：正文 15px/2.0 行高、限宽由外层给；代码块带标题栏，可选"写入代码区"。
 function Inline({ text }) {
-  return text.split(/(`[^`]+`)/).map((t, k) =>
-    t.startsWith('`') ? (
-      <code key={k} className="font-mono text-[13px] bg-paper-deep px-1.5 py-0.5 rounded text-cinnabar-deep">
-        {t.slice(1, -1)}
-      </code>
-    ) : (
-      t
-    )
-  );
+  return text.split(/(`[^`]+`|\*\*[^*]+\*\*|\*[^*]+\*)/).map((t, k) => {
+    if (t.startsWith('`'))
+      return (
+        <code key={k} className="font-mono text-[13px] bg-paper-deep px-1.5 py-0.5 rounded text-cinnabar-deep">
+          {t.slice(1, -1)}
+        </code>
+      );
+    if (t.startsWith('**'))
+      return <strong key={k} className="font-semibold text-ink">{t.slice(2, -2)}</strong>;
+    if (t.startsWith('*'))
+      return <em key={k}>{t.slice(1, -1)}</em>;
+    return t;
+  });
 }
 
 const LIST_RE = /^\s*(?:[-*•]|\d+[.、)])\s+/;
+const HEAD_RE = /^(#{1,6})\s+(.+)$/;
+const BOLD_ONLY_RE = /^\*\*([^*]+)\*\*$/;
+const HEAD_CLS = {
+  1: 'font-display text-lg font-bold text-ink',
+  2: 'font-display text-base font-bold text-ink',
+  3: 'font-display text-[15px] font-bold text-ink',
+};
 
 export default function Rich({ text, onLoadCode = null, codeLabel = '示例' }) {
   const parts = (text || '').split(/```/);
@@ -49,13 +60,22 @@ export default function Rich({ text, onLoadCode = null, codeLabel = '示例' }) 
           const lines = block.split('\n').filter((l) => l.trim());
           const groups = [];
           for (const l of lines) {
+            const h = l.match(HEAD_RE);
+            const boldOnly = !h && l.match(BOLD_ONLY_RE);
+            if (h) { groups.push({ head: h[1].length, lines: [h[2]] }); continue; }
+            // 整行加粗（模型常用来写四段小节名）当作小标题，避免星号原样露出
+            if (boldOnly) { groups.push({ head: 3, lines: [boldOnly[1]] }); continue; }
             const isList = LIST_RE.test(l);
             const last = groups[groups.length - 1];
-            if (last && last.list === isList) last.lines.push(l);
+            if (last && !last.head && last.list === isList) last.lines.push(l);
             else groups.push({ list: isList, lines: [l] });
           }
           return groups.map((g, k) =>
-            g.list ? (
+            g.head ? (
+              <div key={`${i}-${j}-${k}`} className={HEAD_CLS[Math.min(g.head, 3)]}>
+                <Inline text={g.lines[0]} />
+              </div>
+            ) : g.list ? (
               <ul key={`${i}-${j}-${k}`} className="flex flex-col gap-2.5 pl-1">
                 {g.lines.map((l, n) => (
                   <li key={n} className="flex gap-2.5 text-[15px] leading-8 text-ink">
