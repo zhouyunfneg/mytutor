@@ -289,10 +289,12 @@ export default function PackPanel({ onSelectPack, onResume, onRestart, onDetailC
                   >
                     {p.name}
                   </button>
-                  <span className={`text-[10px] whitespace-nowrap ${st.cls}`}>
-                    {active && <span className="inline-block animate-pulse">● </span>}
-                    {st.label}
-                  </span>
+                  {p.status !== 'ready' && (
+                    <span className={`text-[10px] whitespace-nowrap ${st.cls}`}>
+                      {active && <span className="inline-block animate-pulse">● </span>}
+                      {st.label}
+                    </span>
+                  )}
                 </div>
                 {p.status === 'ready' && prog.total > 0 && (
                   <div className="mt-1.5">

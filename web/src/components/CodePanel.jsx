@@ -131,6 +131,11 @@ const STARTERS = {
   javascript: '// 在这里写 JavaScript，点「运行」看结果\nconsole.log("你好，MyTutor");\n',
   typescript: '// 在这里写 TypeScript，点「运行」看结果\nconst greet = (name: string): string => `你好，${name}`;\nconsole.log(greet("MyTutor"));\n',
   html: '<!-- 写 HTML/CSS/JS，右侧实时预览 -->\n<style>\n  body { font-family: sans-serif; display: grid; place-items: center; height: 100vh; margin: 0; background: #f1eee6; }\n  h1 { color: #9d5f50; }\n</style>\n<h1>你好，MyTutor</h1>\n',
+  c: '#include <stdio.h>\n\nint main(void) {\n    printf("你好，MyTutor\\n");\n    return 0;\n}\n',
+  cpp: '#include <iostream>\n\nint main() {\n    std::cout << "你好，MyTutor" << std::endl;\n    return 0;\n}\n',
+  csharp: 'using System;\n\nclass Program {\n    static void Main() {\n        Console.WriteLine("你好，MyTutor");\n    }\n}\n',
+  rust: 'fn main() {\n    println!("你好，MyTutor");\n}\n',
+  go: 'package main\n\nimport "fmt"\n\nfunc main() {\n    fmt.Println("你好，MyTutor")\n}\n',
 };
 
 const LANGS = [
@@ -138,6 +143,11 @@ const LANGS = [
   { id: 'javascript', label: 'JavaScript' },
   { id: 'typescript', label: 'TypeScript' },
   { id: 'html', label: 'HTML 预览' },
+  { id: 'c', label: 'C' },
+  { id: 'cpp', label: 'C++' },
+  { id: 'csharp', label: 'C#' },
+  { id: 'rust', label: 'Rust' },
+  { id: 'go', label: 'Go' },
 ];
 
 export default function CodePanel({ lockLang = null, onCodeChange, inject = null }) {

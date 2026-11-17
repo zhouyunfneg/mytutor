@@ -42,6 +42,46 @@ PACKS: dict[str, dict[str, Any]] = {
             {"url": "https://www.typescriptlang.org/docs/handbook/intro.html", "depth": 1, "pages": 30},
         ],
     },
+    # 2026-11-17 新增五语言。文档源以服务器（杭州机房 IP）实测可抓为准：
+    # cppreference 英文/中文站均被 Cloudflare 人机验证挡（403 "Just a moment"），
+    # 改用微软官方中文文档（与 C# 同站，深度 2 各抓 29 篇，原文中文）；
+    # go.dev 的 robots 挡爬虫 → Google 官方中国镜像 golang.google.cn；
+    # Rust 官方书章节页做种子只会爬到自身附近几页，改用 book/ 索引 + 深度 2（含整本 print.html）。
+    "c": {
+        "name": "C",
+        "runtime": "c",
+        "sources": [
+            {"url": "https://learn.microsoft.com/zh-cn/cpp/c-language/", "depth": 2, "pages": 30},
+        ],
+    },
+    "cpp": {
+        "name": "C++",
+        "runtime": "cpp",
+        "sources": [
+            {"url": "https://learn.microsoft.com/zh-cn/cpp/cpp/", "depth": 2, "pages": 30},
+        ],
+    },
+    "csharp": {
+        "name": "C#",
+        "runtime": "csharp",
+        "sources": [
+            {"url": "https://learn.microsoft.com/zh-cn/dotnet/csharp/", "depth": 1, "pages": 30},
+        ],
+    },
+    "rust": {
+        "name": "Rust",
+        "runtime": "rust",
+        "sources": [
+            {"url": "https://doc.rust-lang.org/book/", "depth": 2, "pages": 40},
+        ],
+    },
+    "go": {
+        "name": "Go",
+        "runtime": "go",
+        "sources": [
+            {"url": "https://golang.google.cn/doc/", "depth": 1, "pages": 30},
+        ],
+    },
 }
 
 _running: set[str] = set()

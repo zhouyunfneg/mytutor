@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import CodePanel from '../components/CodePanel.jsx';
 import { api } from '../api.js';
 
-const LOCK_LANG = { python: 'python', javascript: 'javascript', typescript: 'typescript', 'html-css': 'html' };
+const LOCK_LANG = { python: 'python', javascript: 'javascript', typescript: 'typescript', 'html-css': 'html', c: 'c', cpp: 'cpp', csharp: 'csharp', rust: 'rust', go: 'go' };
 const MODES = [
   { id: 'due', label: '间隔复习' },
   { id: 'wrong', label: '错题重练' },

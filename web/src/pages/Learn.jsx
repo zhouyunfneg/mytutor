@@ -1,10 +1,10 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import CodePanel from '../components/CodePanel.jsx';
 import PackPanel from '../components/PackPanel.jsx';
 import TeachCard from '../components/TeachCard.jsx';
 import { api } from '../api.js';
 
-const LOCK_LANG = { python: 'python', javascript: 'javascript', typescript: 'typescript', 'html-css': 'html' };
+const LOCK_LANG = { python: 'python', javascript: 'javascript', typescript: 'typescript', 'html-css': 'html', c: 'c', cpp: 'cpp', csharp: 'csharp', rust: 'rust', go: 'go' };
 
 const ChevronsRight = () => (
   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
@@ -30,6 +30,9 @@ export default function Learn() {
   const [bookOpen, setBookOpen] = useState(false);
   const [collapsed, setCollapsed] = useState(() => localStorage.getItem('mytutor-book-collapsed') === '1');
   const [packsMeta, setPacksMeta] = useState(null);
+  // 开包进行中屏蔽 refresh：packId 变化触发的 GET 可能早于 start 存盘返回 null，
+  // 晚到会覆盖 start 的结果，新课首次「开始学习」会卡在空态
+  const openingRef = useRef(false);
 
   useEffect(() => {
     localStorage.setItem('mytutor-book-collapsed', collapsed ? '1' : '0');
@@ -48,7 +51,7 @@ export default function Learn() {
   const railPct = railTotal > 0 ? Math.round((railDone / railTotal) * 100) : 0;
 
   const refresh = useCallback(async () => {
-    if (!packId) return;
+    if (!packId || openingRef.current) return;
     try {
       setSession(await api.get(`/api/teach/${packId}`));
     } catch {
@@ -62,6 +65,7 @@ export default function Learn() {
 
   // 左栏点技能树某个点 = 从该点开始学
   const onSelectPack = async (pid, point) => {
+    openingRef.current = true;
     setPackId(pid);
     setSession(null);
     try {
@@ -73,11 +77,14 @@ export default function Learn() {
       }
     } catch (e) {
       setSession({ step: 'none', error: String(e.message || e) });
+    } finally {
+      openingRef.current = false;
     }
   };
 
   // 开始/继续学习：有会话接着上次位置，没有则从第一个点开始；restart 清进度重来
   const openPack = async (pid, { restart = false } = {}) => {
+    openingRef.current = true;
     setPackId(pid);
     setSession(null);
     try {
@@ -91,6 +98,8 @@ export default function Learn() {
       setSession(r && r.ok === false ? { step: 'none', error: r.error } : r);
     } catch (e) {
       setSession({ step: 'none', error: String(e.message || e) });
+    } finally {
+      openingRef.current = false;
     }
   };
 

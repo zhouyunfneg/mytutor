@@ -13,7 +13,7 @@ from pydantic import BaseModel
 
 from . import auth, config, kb, llm, notes, packs, practice, runner, teach
 
-app = FastAPI(title="MyTutor", version="0.3.0")
+app = FastAPI(title="MyTutor", version="0.4.0")
 
 app.add_middleware(
     CORSMiddleware,
@@ -253,6 +253,26 @@ async def teach_start(pack_id: str, body: TeachStart):
 async def teach_step(pack_id: str):
     try:
         return await teach.to_exercise(pack_id)
+    except Exception as e:
+        return _teach_err(e)
+
+
+class TeachAsk(BaseModel):
+    question: str
+
+
+@app.post("/api/teach/{pack_id}/ask")
+async def teach_ask(pack_id: str, body: TeachAsk):
+    try:
+        return await teach.ask(pack_id, body.question)
+    except Exception as e:
+        return _teach_err(e)
+
+
+@app.post("/api/teach/{pack_id}/clarify")
+async def teach_clarify(pack_id: str):
+    try:
+        return await teach.clarify(pack_id)
     except Exception as e:
         return _teach_err(e)
 

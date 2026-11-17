@@ -102,6 +102,10 @@ body {
 }
 .step-dot.done { background: var(--color-pine); border-color: var(--color-pine); }
 
+/* AI 示意图：服务端白名单校验过的纯矢量 SVG，等比铺满图块 */
+.diagram svg { width: 100%; height: auto; display: block; }
+.diagram text { user-select: none; }
+
 /* 卡片：中等厚度玻璃（类名沿用 paper-card） */
 .paper-card {
   background: rgba(252, 250, 244, 0.62);
