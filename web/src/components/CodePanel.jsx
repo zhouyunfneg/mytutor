@@ -6,6 +6,7 @@ import tsWorker from 'monaco-editor/esm/vs/language/typescript/ts.worker?worker'
 import htmlWorker from 'monaco-editor/esm/vs/language/html/html.worker?worker';
 import cssWorker from 'monaco-editor/esm/vs/language/css/css.worker?worker';
 import { api } from '../api.js';
+import { installEmmet } from '../emmet.js';
 
 // 本地打包 Monaco，不走 CDN
 self.MonacoEnvironment = {
@@ -130,7 +131,7 @@ const STARTERS = {
   python: '# 在这里写 Python，点「运行」看结果\nprint("你好，MyTutor")\n',
   javascript: '// 在这里写 JavaScript，点「运行」看结果\nconsole.log("你好，MyTutor");\n',
   typescript: '// 在这里写 TypeScript，点「运行」看结果\nconst greet = (name: string): string => `你好，${name}`;\nconsole.log(greet("MyTutor"));\n',
-  html: '<!-- 写 HTML/CSS/JS，右侧实时预览 -->\n<style>\n  body { font-family: sans-serif; display: grid; place-items: center; height: 100vh; margin: 0; background: #f1eee6; }\n  h1 { color: #9d5f50; }\n</style>\n<h1>你好，MyTutor</h1>\n',
+  html: '<!-- 写 HTML/CSS/JS，右侧实时预览 -->\n<!-- Emmet：输入 div>ul>li*3 按 Tab 展开 -->\n<style>\n  body { font-family: sans-serif; display: grid; place-items: center; height: 100vh; margin: 0; background: #f1eee6; }\n  h1 { color: #9d5f50; }\n</style>\n<h1>你好，MyTutor</h1>\n',
   c: '#include <stdio.h>\n\nint main(void) {\n    printf("你好，MyTutor\\n");\n    return 0;\n}\n',
   cpp: '#include <iostream>\n\nint main() {\n    std::cout << "你好，MyTutor" << std::endl;\n    return 0;\n}\n',
   csharp: 'using System;\n\nclass Program {\n    static void Main() {\n        Console.WriteLine("你好，MyTutor");\n    }\n}\n',
@@ -172,6 +173,11 @@ export default function CodePanel({ lockLang = null, onCodeChange, inject = null
   useEffect(() => {
     if (lockLang) setLang(lockLang);
   }, [lockLang]);
+
+  // Emmet 只服务 HTML 页签：首次进入才懒加载引擎并注册（补全预览 + Tab 展开）
+  useEffect(() => {
+    if (lang === 'html') installEmmet(monaco);
+  }, [lang]);
 
   // 外部注入代码（载入起始代码）
   useEffect(() => {
