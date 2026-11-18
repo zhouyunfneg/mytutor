@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { NavLink, Navigate, Route, Routes, useLocation } from 'react-router-dom';
+import { NavLink, Navigate, Route, Routes, useLocation, useNavigate } from 'react-router-dom';
 import Learn from './pages/Learn.jsx';
 import Practice from './pages/Practice.jsx';
 import Notes from './pages/Notes.jsx';
@@ -66,6 +66,9 @@ export default function App() {
   const [authed, setAuthed] = useState(null); // null= checking
   const [dueCount, setDueCount] = useState(0);
   const [version, setVersion] = useState('');
+  // 点 LOGO 回主页：路由回 '/' 并发 home 信号，让 Learn 重置到默认页（保留代码区内容）
+  const [homeTick, setHomeTick] = useState(0);
+  const navigate = useNavigate();
   const location = useLocation();
 
   useEffect(() => {
@@ -99,7 +102,15 @@ export default function App() {
     <div className="flex h-full">
       {/* 左侧导航 */}
       <aside className="w-[88px] shrink-0 border-r border-line bg-paper-deep/60 flex flex-col items-center py-5 gap-1">
-        <img src={LOGO} alt="MyTutor" className="w-11 h-11 mb-6 select-none" />
+        <button
+          type="button"
+          onClick={() => { navigate('/'); setHomeTick((t) => t + 1); }}
+          title="回到主页 · 默认页面"
+          aria-label="回到主页（默认页面）"
+          className="mb-5 p-1 -m-1 rounded-2xl cursor-pointer transition-all hover:bg-card/70 hover:shadow-sm hover:scale-[1.04] active:scale-95 focus-visible:outline focus-visible:outline-2 focus-visible:outline-cinnabar/40"
+        >
+          <img src={LOGO} alt="MyTutor" className="w-11 h-11 select-none" />
+        </button>
         <nav className="flex flex-col gap-2 w-full px-3 stagger">
           {NAV.map((n) => (
             <NavLink
@@ -134,7 +145,7 @@ export default function App() {
       {/* 主区域 */}
       <main className="flex-1 min-w-0 overflow-hidden">
         <Routes>
-          <Route path="/" element={<Learn />} />
+          <Route path="/" element={<Learn homeTick={homeTick} />} />
           <Route path="/practice" element={<Practice />} />
           <Route path="/notes" element={<Notes />} />
           <Route path="/library" element={<Navigate to="/notes" replace />} />

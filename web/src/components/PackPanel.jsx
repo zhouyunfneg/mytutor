@@ -138,8 +138,17 @@ export default function PackPanel({ onSelectPack, onResume, onRestart, onDetailC
 
     return (
       <div className="flex flex-col h-full">
-        <button className="btn-ghost text-xs self-start mb-2" onClick={closeDetail}>
-          ← 返回
+        <button
+          className="group inline-flex items-center gap-1.5 self-start mb-2.5 pl-1 pr-3 py-1 rounded-full border border-line bg-card/60 shadow-sm text-[11px] text-ink-soft hover:bg-card hover:text-ink hover:border-line transition-all"
+          onClick={closeDetail}
+          title="返回书架"
+        >
+          <span className="w-5 h-5 grid place-items-center rounded-full border border-line/70 bg-paper-deep text-ink-soft group-hover:text-cinnabar group-hover:border-cinnabar/30 transition-colors">
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" className="transition-transform group-hover:-translate-x-px">
+              <path d="M15 18l-6-6 6-6" />
+            </svg>
+          </span>
+          返回书架
         </button>
 
         {/* 书头：名称 + 进度 + 主行动 */}

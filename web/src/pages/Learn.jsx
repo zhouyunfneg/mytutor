@@ -37,12 +37,13 @@ const BookOpen = () => (
   </svg>
 );
 
-export default function Learn() {
+export default function Learn({ homeTick = 0 }) {
   const [packId, setPackId] = useState(null);
   const [session, setSession] = useState(null);
   const [mirror, setMirror] = useState({ lang: 'python', code: '' });
   const [inject, setInject] = useState(null);
   const [bookOpen, setBookOpen] = useState(false);
+  const [packPanelKey, setPackPanelKey] = useState(0);
   const [collapsed, setCollapsed] = useState(() => localStorage.getItem('mytutor-book-collapsed') === '1');
   const [packsMeta, setPacksMeta] = useState(null);
   // 开包进行中屏蔽 refresh：packId 变化触发的 GET 可能早于 start 存盘返回 null，
@@ -52,6 +53,15 @@ export default function Learn() {
   useEffect(() => {
     localStorage.setItem('mytutor-book-collapsed', collapsed ? '1' : '0');
   }, [collapsed]);
+
+  // LOGO home 信号：回默认页（清选书 + 关书详情重挂载书架），但保留代码区已写内容不丢
+  useEffect(() => {
+    if (!homeTick) return;
+    setPackId(null);
+    setSession(null);
+    setBookOpen(false);
+    setPackPanelKey((k) => k + 1);
+  }, [homeTick]);
 
   // 书脊进度：当前包的总点数；未选包时显示最近在读的那本
   useEffect(() => {
@@ -198,6 +208,7 @@ export default function Learn() {
           </div>
           <div className="flex-1 min-h-0 p-4 pt-3">
             <PackPanel
+              key={packPanelKey}
               onSelectPack={onSelectPack}
               onResume={(pid) => openPack(pid)}
               onRestart={(pid) => openPack(pid, { restart: true })}
