@@ -13,7 +13,7 @@ from pydantic import BaseModel
 
 from . import auth, config, kb, llm, notes, packs, practice, runner, teach
 
-app = FastAPI(title="MyTutor", version="0.5.0")
+app = FastAPI(title="MyTutor", version="0.6.0")
 
 app.add_middleware(
     CORSMiddleware,
@@ -284,13 +284,14 @@ async def teach_clarify(pack_id: str):
 
 
 class TeachSubmit(BaseModel):
-    code: str
+    code: str = ""
+    choice: int | None = None  # 选择/判断题：选项下标；代码题忽略
 
 
 @app.post("/api/teach/{pack_id}/submit")
 async def teach_submit(pack_id: str, body: TeachSubmit):
     try:
-        await teach.submit(pack_id, body.code)
+        await teach.submit(pack_id, body.code, body.choice)
         return teach.state(pack_id)
     except Exception as e:
         return _teach_err(e)
@@ -300,6 +301,15 @@ async def teach_submit(pack_id: str, body: TeachSubmit):
 async def teach_retry(pack_id: str):
     try:
         await teach.retry(pack_id)
+        return teach.state(pack_id)
+    except Exception as e:
+        return _teach_err(e)
+
+
+@app.post("/api/teach/{pack_id}/newproblem")
+async def teach_newproblem(pack_id: str):
+    try:
+        await teach.new_problem(pack_id)
         return teach.state(pack_id)
     except Exception as e:
         return _teach_err(e)
@@ -338,14 +348,15 @@ async def practice_next(body: PracticeNext):
 class PracticeSubmit(BaseModel):
     pack_id: str
     problem_id: str
-    code: str
+    code: str = ""
     wrong_id: str | None = None
+    choice: int | None = None
 
 
 @app.post("/api/practice/submit")
 async def practice_submit(body: PracticeSubmit):
     try:
-        return await practice.submit(body.pack_id, body.problem_id, body.code, body.wrong_id)
+        return await practice.submit(body.pack_id, body.problem_id, body.code, body.wrong_id, body.choice)
     except Exception as e:
         return _teach_err(e)
 
@@ -353,13 +364,14 @@ async def practice_submit(body: PracticeSubmit):
 class PracticeHint(BaseModel):
     pack_id: str
     problem_id: str
-    code: str
+    code: str = ""
+    choice: int | None = None
 
 
 @app.post("/api/practice/hint")
 async def practice_hint(body: PracticeHint):
     try:
-        return await practice.hint(body.pack_id, body.problem_id, body.code)
+        return await practice.hint(body.pack_id, body.problem_id, body.code, body.choice)
     except Exception as e:
         return _teach_err(e)
 

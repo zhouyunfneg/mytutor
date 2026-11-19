@@ -43,6 +43,7 @@ export default function Practice() {
   const [busy, setBusy] = useState(null);
   const [mirror, setMirror] = useState({ lang: 'python', code: '' });
   const [inject, setInject] = useState(null);
+  const [picked, setPicked] = useState(null); // 选择/判断题选中下标
 
   const refreshOv = useCallback(async () => {
     try {
@@ -79,6 +80,7 @@ export default function Practice() {
     setVerdict(null);
     setHintOnly(null);
     setErr(null);
+    setPicked(null);
     if (r.problem?.starter) {
       setInject({ lang: LOCK_LANG[r.pack_id] || 'python', code: r.problem.starter, n: Date.now() });
     }
@@ -104,7 +106,9 @@ export default function Practice() {
     setHintOnly(null);
     try {
       const r = await api.post('/api/practice/submit', {
-        pack_id: cur.pack_id, problem_id: cur.problem.id, code: mirror.code,
+        pack_id: cur.pack_id, problem_id: cur.problem.id,
+        code: cur.problem.judge?.mode === 'choice' ? '' : mirror.code,
+        choice: cur.problem.judge?.mode === 'choice' ? picked : null,
         wrong_id: cur.wrong_id || null,
       });
       if (r && r.ok === false) setErr(r.error);
@@ -125,7 +129,9 @@ export default function Practice() {
     setBusy('hint');
     try {
       const r = await api.post('/api/practice/hint', {
-        pack_id: cur.pack_id, problem_id: cur.problem.id, code: mirror.code,
+        pack_id: cur.pack_id, problem_id: cur.problem.id,
+        code: cur.problem.judge?.mode === 'choice' ? '' : mirror.code,
+        choice: cur.problem.judge?.mode === 'choice' ? picked : null,
       });
       if (r && r.ok === false) setErr(r.error);
       else setHintOnly(r.hint);
@@ -146,6 +152,7 @@ export default function Practice() {
 
   const rate = ov && ov.submitted > 0 ? Math.round((ov.passed / ov.submitted) * 100) : null;
   const lockLang = cur ? LOCK_LANG[cur.pack_id] || null : null;
+  const isChoice = cur?.problem?.judge?.mode === 'choice';
   const schedOf = (pid) => ov?.due?.find((d) => d.point_id === pid);
 
   return (
@@ -310,14 +317,41 @@ export default function Practice() {
               </div>
             )}
 
+            {isChoice && (
+              <div className="flex flex-col gap-2 mb-4">
+                {cur.problem.judge.options.map((opt, i) => {
+                  const sel = picked === i;
+                  return (
+                    <button
+                      key={i}
+                      type="button"
+                      onClick={() => setPicked(i)}
+                      className={`text-left flex items-start gap-3 px-4 py-2.5 rounded-xl border transition-colors ${
+                        sel ? 'border-ink/60 bg-paper-deep/80' : 'border-line bg-card/60 hover:bg-paper-deep/50'
+                      }`}
+                    >
+                      <span className={`shrink-0 w-6 h-6 rounded-full grid place-items-center text-[11px] font-mono font-bold ${
+                        sel ? 'bg-ink text-paper' : 'bg-paper-deep text-ink-soft border border-line/70'
+                      }`}>{String.fromCharCode(65 + i)}</span>
+                      <span className="flex-1 text-[13px] leading-6 text-ink">{opt}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+
             <div className="flex flex-wrap items-center gap-2 mb-4">
-              <button className="btn-seal text-xs px-4 py-1.5" disabled={busy === 'submit'} onClick={submit}>
+              <button
+                className="btn-seal text-xs px-4 py-1.5"
+                disabled={busy === 'submit' || (isChoice && picked === null)}
+                onClick={submit}
+              >
                 {busy === 'submit' ? '判题中…' : '提交判题'}
               </button>
               <button className="btn-ghost text-xs px-3 py-1.5" disabled={busy === 'hint'} onClick={askHint}>
                 {busy === 'hint' ? '…' : '要提示'}
               </button>
-              {cur.problem.starter && (
+              {!isChoice && cur.problem.starter && (
                 <button
                   className="btn-ghost text-xs px-3 py-1.5"
                   onClick={() => setInject({ lang: lockLang || 'python', code: cur.problem.starter, n: Date.now() })}
@@ -354,7 +388,7 @@ export default function Practice() {
             )}
             {verdict && !verdict.pass && (
               <div className="border border-cinnabar/40 bg-cinnabar/5 rounded-lg px-3 py-2.5 mb-3 fade-up">
-                <div className="text-sm text-cinnabar font-medium">还不对，改改再提交</div>
+                <div className="text-sm text-cinnabar font-medium">{isChoice ? '还不对，再想想重新选' : '还不对，改改再提交'}</div>
                 <p className="text-xs text-ink-soft mt-1 leading-relaxed">{verdict.hint}</p>
                 <div className="text-[10px] text-ink-faint mt-1.5">
                   已记入错题本{verdict.cause ? ` · 错因：${verdict.cause}` : ''} · 复习排期归零，明天重来
@@ -371,7 +405,9 @@ export default function Practice() {
               <div className="text-xs text-cinnabar bg-cinnabar/5 border border-cinnabar/30 rounded-lg px-3 py-2 mb-3">{err}</div>
             )}
             <p className="mt-auto pt-3 text-[11px] text-ink-faint leading-relaxed">
-              在右侧代码区写答案，可先「运行」自测再提交。提示只指方向，答案要自己改出来。
+              {isChoice
+                ? '选一个答案再提交；提示只指方向，不点明正确选项。'
+                : '在右侧代码区写答案，可先「运行」自测再提交。提示只指方向，答案要自己改出来。'}
             </p>
           </>
         )}

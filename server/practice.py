@@ -13,7 +13,7 @@ import json
 import uuid
 from datetime import date, timedelta
 
-from . import llm, packs, runner, teach
+from . import curriculum, llm, packs, runner, teach
 from .config import DATA_DIR
 
 PATH = DATA_DIR / "practice.json"
@@ -51,7 +51,7 @@ VARIANT_PROMPT = """为下面的微知识点出 1 道动手练习题（变式：
 只输出 JSON，格式：
 {{"task": "题面，中文，≤120字，说清要写什么代码", "starter": "给学习者的起始代码（可为空字符串）", "judge": {judge_schema}}}
 {judge_rules}
-题目只考当前这一个知识点，5 分钟内能做完，不引入新知识点。"""
+题目只考当前这一个知识点，只用这个点教过的语法，绝不引入没学过的内容；5 分钟内能做完，不引入新知识点。"""
 
 CAUSE_PROMPT = """学习者这道题做错了。用一句话点出他错在哪（错因，不是提示）。
 
@@ -62,6 +62,26 @@ CAUSE_PROMPT = """学习者这道题做错了。用一句话点出他错在哪�
 {output}
 
 铁律：≤30 字，中文，只说错因（如"把 == 写成了 = "），不给答案代码，不写套话。"""
+
+# 概念点的变式练习同样走选择/判断（与教学循环同一规则），answer 只留服务端
+CHOICE_VARIANT_PROMPT = """为下面的微知识点出 1 道选择题或判断题（变式：换场景或换问法）。
+
+知识点：{title}
+目标：{goal}
+{avoid}
+
+只输出 JSON，格式：
+{{"task": "题干，中文，≤120字", "starter": "", "judge": {judge_schema}}}
+要求：只考这个点讲过的概念，绝不出现没学过的语法或 API；判断 2 选项、单选 3~4 选项；
+answer 为正确下标（从 0 开始）；干扰项用新手常见误解；每条选项≤40字；5 分钟内能做完。"""
+
+
+def _public_pr(pr: dict) -> dict:
+    """出口剥离 choice 的 answer：前端只拿题干与选项。"""
+    j = pr.get("judge")
+    if isinstance(j, dict) and j.get("mode") == "choice":
+        return {**pr, "judge": {k: v for k, v in j.items() if k != "answer"}}
+    return pr
 
 
 # ── 排期 ──────────────────────────────────────────────────────────────
@@ -112,18 +132,23 @@ def due_list() -> list[dict]:
 
 # ── 题库 ──────────────────────────────────────────────────────────────
 async def _generate(pack_id: str, point: dict, avoid: list[str]) -> dict:
-    desc, schema, _ = teach._judge_spec(pack_id)
     avoid_txt = ("已出过的题（不要重复）：\n" + "\n".join(f"- {t}" for t in avoid)) if avoid else ""
-    raw = await llm.chat(
-        [{"role": "user", "content": VARIANT_PROMPT.format(
+    if curriculum.is_concept(pack_id, point["id"]):
+        pr = await teach._gen_choice(CHOICE_VARIANT_PROMPT.format(
             title=point["title"], goal=point["goal"], avoid=avoid_txt,
-            judge_desc=desc, judge_schema=schema, judge_rules=teach.JUDGE_RULES)}],
-        temperature=0.7,
-        max_tokens=1500,
-    )
-    pr = teach._parse_json(raw)
-    if not pr.get("task") or not pr.get("judge"):
-        raise RuntimeError("练习题结果缺少 task/judge")
+            judge_schema=teach.CHOICE_SCHEMA), temperature=0.7)
+    else:
+        desc, schema, _ = teach._judge_spec(pack_id)
+        raw = await llm.chat(
+            [{"role": "user", "content": VARIANT_PROMPT.format(
+                title=point["title"], goal=point["goal"], avoid=avoid_txt,
+                judge_desc=desc, judge_schema=schema, judge_rules=teach.judge_rules(pack_id))}],
+            temperature=0.7,
+            max_tokens=1500,
+        )
+        pr = teach._parse_json(raw)
+        if not pr.get("task") or not pr.get("judge"):
+            raise RuntimeError("练习题结果缺少 task/judge")
     return {"id": "pr" + uuid.uuid4().hex[:8], "pack_id": pack_id, "point_id": point["id"],
             "task": pr["task"], "starter": pr.get("starter", ""), "judge": pr["judge"]}
 
@@ -189,7 +214,7 @@ def wrong_list() -> list[dict]:
     for w in st["wrong"]:
         tree = packs.load_tree(w["pack_id"])
         p = teach.find_point(tree, w["point_id"]) if tree else None
-        out.append({**w, "title": p["title"] if p else w["point_id"],
+        out.append({**_public_pr(w), "title": p["title"] if p else w["point_id"],
                     "pack_name": packs.PACKS.get(w["pack_id"], {}).get("name", w["pack_id"])})
     out.sort(key=lambda x: x.get("last", x["first"]), reverse=True)
     return out
@@ -214,7 +239,7 @@ async def next_problem(mode: str, pack_id: str | None = None, point_id: str | No
         pr = {"id": w["problem_id"], "pack_id": w["pack_id"], "point_id": w["point_id"],
               "task": w["task"], "starter": w.get("starter", ""), "judge": w["judge"]}
         point = teach.find_point(packs.load_tree(w["pack_id"]), w["point_id"])
-        return {"mode": "wrong", "wrong_id": w["id"], "problem": pr, "point": point,
+        return {"mode": "wrong", "wrong_id": w["id"], "problem": _public_pr(pr), "point": point,
                 "pack_id": w["pack_id"], "cause": w.get("cause", ""), "count": w["count"]}
     if mode == "due":
         dues = due_list()
@@ -235,11 +260,12 @@ async def next_problem(mode: str, pack_id: str | None = None, point_id: str | No
     pr = await _pick_problem(st, pack_id, point)
     _save(st)
     e = st["sched"].get(point_id)
-    return {"mode": mode, "problem": pr, "point": point, "pack_id": pack_id,
+    return {"mode": mode, "problem": _public_pr(pr), "point": point, "pack_id": pack_id,
             "sched": {"reps": e["reps"], "interval": e["interval"], "due": e["due"]} if e else None}
 
 
-async def submit(pack_id: str, problem_id: str, code: str, wrong_id: str | None = None) -> dict:
+async def submit(pack_id: str, problem_id: str, code: str, wrong_id: str | None = None,
+                 choice: int | None = None) -> dict:
     st = _load()
     pr = _find_problem(st, pack_id, problem_id)
     if not pr:
@@ -250,7 +276,13 @@ async def submit(pack_id: str, problem_id: str, code: str, wrong_id: str | None 
         raise ValueError("技能树里没有这道题的知识点")
     judge = pr["judge"]
     output = ""
-    if judge["mode"] == "sandbox":
+    if judge["mode"] == "choice":
+        opts = judge["options"]
+        if type(choice) is not int or not 0 <= choice < len(opts):
+            raise ValueError("请先选一个选项再提交")
+        passed = choice == judge["answer"]
+        code = opts[choice]  # 错题本里留"他选了什么"
+    elif judge["mode"] == "sandbox":
         lang = teach._judge_spec(pack_id)[2]
         full = teach._sandbox_full(code, judge.get("append", ""), lang)
         r = await runner.run_code(full, lang, timeout=15)
@@ -279,7 +311,14 @@ async def submit(pack_id: str, problem_id: str, code: str, wrong_id: str | None 
         return {"pass": True, "hint": "", "output": output[:2000],
                 "sched": {"reps": e["reps"], "interval": e["interval"], "due": e["due"]},
                 "wrong_removed": removed}
-    if judge["mode"] == "sandbox":
+    if judge["mode"] == "choice":
+        hint = (await llm.chat(
+            [{"role": "user", "content": teach.CHOICE_HINT_PROMPT.format(
+                task=pr["task"], options=teach._choice_options_text(judge), chosen=code)}],
+            temperature=0.3,
+            max_tokens=250,
+        )).strip()
+    elif judge["mode"] == "sandbox":
         hint = (await llm.chat(
             [{"role": "user", "content": teach.HINT_PROMPT.format(task=pr["task"], code=code, output=output[:1500])}],
             temperature=0.3,
@@ -297,13 +336,23 @@ async def submit(pack_id: str, problem_id: str, code: str, wrong_id: str | None 
             "sched": {"reps": e["reps"], "interval": e["interval"], "due": e["due"]}}
 
 
-async def hint(pack_id: str, problem_id: str, code: str) -> dict:
+async def hint(pack_id: str, problem_id: str, code: str, choice: int | None = None) -> dict:
     """只要提示不判题：不记错题、不动排期。提示锁同教学循环：只指方向不给答案。"""
     st = _load()
     pr = _find_problem(st, pack_id, problem_id)
     if not pr:
         raise ValueError("题目不存在或已过期，请换一题")
     output = ""
+    if pr["judge"]["mode"] == "choice":
+        opts = pr["judge"]["options"]
+        chosen = opts[choice] if type(choice) is int and 0 <= choice < len(opts) else "（尚未选择）"
+        txt = await llm.chat(
+            [{"role": "user", "content": teach.CHOICE_HINT_PROMPT.format(
+                task=pr["task"], options=teach._choice_options_text(pr["judge"]), chosen=chosen)}],
+            temperature=0.3,
+            max_tokens=250,
+        )
+        return {"hint": txt.strip(), "output": ""}
     if pr["judge"]["mode"] == "sandbox":
         lang = teach._judge_spec(pack_id)[2]
         r = await runner.run_code(code, lang, timeout=15)

@@ -37,8 +37,12 @@ export default function TeachCard({ packId, session, refresh, code, onLoadStarte
   const [askErr, setAskErr] = useState(null);
   const [pendingQ, setPendingQ] = useState(null);
   const [clarifying, setClarifying] = useState(false);
+  // 做题/巩固阶段「换一题」：坏题卡壳的出口，独立 changing，不占用提交按钮的 busy
+  const [changing, setChanging] = useState(false);
   // 正文双页签：content=讲解/题目，qa=问老师独立面板；问答不再和题面混排
   const [bodyTab, setBodyTab] = useState('content');
+  // 选择/判断题：当前选中选项下标（null=未选）；换题/换阶段复位
+  const [picked, setPicked] = useState(null);
   const qaEndRef = useRef(null);
   const taRef = useRef(null);
 
@@ -50,7 +54,7 @@ export default function TeachCard({ packId, session, refresh, code, onLoadStarte
   // 阶段/知识点变化（出题、纠错、巩固、下一个点）→ 切回内容页签，题面与提示优先可见
   const stepNow = session?.step;
   const pointNow = session?.point_id;
-  useEffect(() => { setBodyTab('content'); }, [stepNow, pointNow]);
+  useEffect(() => { setBodyTab('content'); setPicked(null); }, [stepNow, pointNow]);
   // 提问框随内容长高（上限 112px），清空后复位；未超上限不露滚动条
   useEffect(() => {
     const el = taRef.current;
@@ -112,6 +116,24 @@ export default function TeachCard({ packId, session, refresh, code, onLoadStarte
     }
   };
 
+  // 换一题：重生成当前题（不跳知识点）；代码题换题后自动载入新骨架，选择题复位选中
+  const changeProblem = async () => {
+    setChanging(true);
+    setErr(null);
+    try {
+      const r = await api.post(`/api/teach/${packId}/newproblem`, {});
+      if (r && r.ok === false) { setErr(r.error); return; }
+      await refresh();
+      setPicked(null); // 换题可能仍在同一步骤（exercise→exercise），阶段 effect 不会触发，手动复位
+      const nx = r?.step?.startsWith('consolidate') ? r.consolidate : r.exercise;
+      if (nx && nx.judge?.mode !== 'choice' && nx.starter) onLoadStarter(nx.starter);
+    } catch (e) {
+      setErr(String(e.message || e));
+    } finally {
+      setChanging(false);
+    }
+  };
+
   if (!session || session.step === 'none') {
     return (
       <div className="flex-1 grid place-items-center">
@@ -137,6 +159,7 @@ export default function TeachCard({ packId, session, refresh, code, onLoadStarte
   const idx = STEP_IDX[s.step];
   const done = ['point_done', 'section_summary', 'module_summary', 'pack_done'].includes(s.step);
   const ex = s.step.startsWith('consolidate') ? s.consolidate : s.exercise;
+  const isChoice = ex?.judge?.mode === 'choice';
   const isCorrecting = s.step === 'correcting' || s.step === 'consolidate_correcting';
   const inTask = ['exercise', 'consolidate', 'correcting', 'consolidate_correcting'].includes(s.step);
   // 讲解 + 做题诸阶段都可「问老师」，随时遇到疑问随时问
@@ -156,18 +179,27 @@ export default function TeachCard({ packId, session, refresh, code, onLoadStarte
   } else if (inTask && ex) {
     actions = (
       <div className="flex items-center gap-3 flex-wrap">
-        <button className="btn-seal px-6 py-2.5 text-sm" disabled={busy || asking} onClick={() => call('submit', { code })}>
-          {busy ? '判题中…' : isCorrecting ? '改好了，再提交' : '提交答案'}
+        <button
+          className="btn-seal px-6 py-2.5 text-sm"
+          disabled={busy || asking || changing || (isChoice && picked === null)}
+          onClick={() => call('submit', isChoice ? { choice: picked } : { code })}
+        >
+          {busy ? '判题中…' : isCorrecting ? (isChoice ? '重选好了，再提交' : '改好了，再提交') : '提交答案'}
         </button>
-        <button className="btn-ghost px-4 py-2 text-xs" disabled={clarifying || busy} onClick={clarifyTask}>
+        <button className="btn-ghost px-4 py-2 text-xs" disabled={clarifying || busy || changing} onClick={clarifyTask}>
           {clarifying ? '读题中…' : '题目提示'}
         </button>
-        {ex.starter ? (
+        <button className="btn-ghost px-4 py-2 text-xs" disabled={changing || busy || asking} onClick={changeProblem}>
+          {changing ? '换题中…' : '换一题'}
+        </button>
+        {!isChoice && ex.starter ? (
           <button className="btn-ghost px-4 py-2 text-xs" onClick={() => onLoadStarter(ex.starter)}>
             载入起始代码
           </button>
         ) : null}
-        <span className="text-xs text-ink-faint">在右侧代码区写，写完提交</span>
+        <span className="text-xs text-ink-faint">
+          {isChoice ? '选一个答案再提交；提示只指方向' : '在右侧代码区写，写完提交'}
+        </span>
       </div>
     );
   } else if (s.step === 'point_done') {
@@ -313,11 +345,39 @@ export default function TeachCard({ packId, session, refresh, code, onLoadStarte
             <>
               <div className="bg-paper-deep/60 border border-line rounded-xl px-5 py-4">
                 <div className="text-[11px] tracking-widest text-ink-faint mb-2">
-                  {s.step.startsWith('consolidate') ? '巩固 · 变式题' : '动手小题'}
+                  {s.step.startsWith('consolidate') ? '巩固 · 变式题' : isChoice ? '概念 · 选择 / 判断' : '动手小题'}
                   {s.attempts > 0 && ` · 已提交 ${s.attempts} 次`}
                 </div>
                 <p className="text-base leading-8 text-ink">{ex.task}</p>
               </div>
+              {isChoice && (
+                <div className="flex flex-col gap-2">
+                  {ex.judge.options.map((opt, i) => {
+                    const sel = picked === i;
+                    const wasPick = isCorrecting && picked === null && s.last_choice === i;
+                    return (
+                      <button
+                        key={i}
+                        type="button"
+                        onClick={() => setPicked(i)}
+                        className={`text-left flex items-start gap-3 px-4 py-3 rounded-xl border transition-colors ${
+                          sel ? 'border-ink/60 bg-paper-deep/80'
+                            : wasPick ? 'border-cinnabar/50 bg-cinnabar/5'
+                              : 'border-line bg-card/60 hover:bg-paper-deep/50'
+                        }`}
+                      >
+                        <span className={`shrink-0 w-6 h-6 rounded-full grid place-items-center text-[11px] font-mono font-bold ${
+                          sel ? 'bg-ink text-paper'
+                            : wasPick ? 'bg-cinnabar/15 text-cinnabar-deep'
+                              : 'bg-paper-deep text-ink-soft border border-line/70'
+                        }`}>{String.fromCharCode(65 + i)}</span>
+                        <span className="flex-1 text-[14px] leading-7 text-ink">{opt}</span>
+                        {wasPick && <span className="shrink-0 text-[10px] text-cinnabar-deep mt-1">上次选的</span>}
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
               {s.task_hint && (
                 <div className="border-l-2 border-pine bg-pine/5 px-5 py-4 rounded-r-xl">
                   <div className="text-[11px] tracking-widest text-pine-deep mb-1.5">题目提示 · 帮你读题</div>

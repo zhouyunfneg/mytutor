@@ -151,6 +151,28 @@ _SEEDS: dict[str, list] = {
     "html-css": _HTML_CSS,
 }
 
+# 概念点清单：考"理解/知道/分清"或操作常识的点，用选择/判断题测，不逼新手写没学过的代码。
+# 只存 id 不改树结构：运行时查表即可，旧 tree.json 与已有进度不受影响（无需重生成树）。
+# 其余点（会写/会用/会设…）仍走动手代码题。
+_CONCEPT_POINTS: dict[str, set[str]] = {
+    "html-css": {
+        "m1s1p1", "m1s1p2", "m1s1p3",          # 网页/网站/Web、浏览器、三层分工
+        "m1s2p1", "m1s2p2", "m1s2p3",          # 编辑器/打开网页/开发者工具：操作常识
+        "m1s3p1",                              # HTML 是标记语言不是编程语言
+        "m4s1p1",                              # CSS 是什么 / 三种引入
+        "m4s2p3",                              # 继承性与层叠性
+        "m5s1p2",                              # 标准 vs IE 盒模型
+        "m5s1p4",                              # 外边距合并与 body 默认 margin
+        "m6s1p1",                              # Flex 容器与主轴交叉轴
+        "m7s2p1",                              # 浏览器兼容与前缀常识
+    },
+}
+
+
+def is_concept(pack_id: str, point_id: str) -> bool:
+    """该点是否用选择/判断题测（概念点）。非种子包一律 False，保持代码题。"""
+    return point_id in _CONCEPT_POINTS.get(pack_id, ())
+
 
 def _match_docs(title: str, index: list[dict] | None, limit: int = 2) -> list[str]:
     """best-effort 从已抓官方文档索引里挑支撑 URL（仅溯源，讲解实际走 kb.search）。
