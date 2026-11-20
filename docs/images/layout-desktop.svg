@@ -1,0 +1,78 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 460" font-family="'Noto Sans SC','PingFang SC','Microsoft YaHei',sans-serif">
+  <rect x="0" y="0" width="960" height="460" rx="18" fill="#f1eee6"/>
+  <text x="36" y="46" font-size="20" font-weight="700" fill="#262219">桌面布局 · 三栏</text>
+  <text x="36" y="70" font-size="12" fill="#9a9287">≥768px：技能树 ｜ 微知识点讲解 ｜ 统一代码区，同屏协作</text>
+
+  <!-- 左：学习书 / 技能树 -->
+  <rect x="36" y="92" width="210" height="300" rx="14" fill="#fbf9f3" stroke="#d6cfc2" stroke-width="1.5"/>
+  <text x="56" y="122" font-size="14" font-weight="700" fill="#262219">学习书 · 技能树</text>
+  <rect x="56" y="138" width="170" height="34" rx="8" fill="#e8e4d8"/>
+  <text x="68" y="160" font-size="12" fill="#5c564e">模块一 · 起步</text>
+  <rect x="68" y="180" width="158" height="28" rx="7" fill="#fbf9f3" stroke="#d6cfc2"/>
+  <text x="80" y="199" font-size="11" fill="#5c564e">小节一 · 赋值</text>
+  <rect x="80" y="214" width="146" height="26" rx="7" fill="#6d8a77" opacity="0.16"/>
+  <circle cx="92" cy="227" r="4" fill="#6d8a77"/>
+  <text x="102" y="231" font-size="11" fill="#5c7a67">用等号赋值 ✓</text>
+  <rect x="80" y="246" width="146" height="26" rx="7" fill="#b3705f" opacity="0.14"/>
+  <circle cx="92" cy="259" r="4" fill="#b3705f"/>
+  <text x="102" y="263" font-size="11" fill="#9d5f50">变量改名 · 当前</text>
+  <rect x="80" y="278" width="146" height="26" rx="7" fill="#fbf9f3" stroke="#d6cfc2"/>
+  <circle cx="92" cy="291" r="4" fill="none" stroke="#9a9287"/>
+  <text x="102" y="295" font-size="11" fill="#9a9287">def 定义函数</text>
+  <text x="56" y="330" font-size="11" fill="#9a9287">进度记在服务器</text>
+  <text x="56" y="350" font-size="11" fill="#9a9287">可收纳成 46px 书脊窄轨</text>
+  <text x="56" y="370" font-size="11" fill="#9a9287">换电脑接着学</text>
+
+  <!-- 中：微知识点卡片 -->
+  <rect x="270" y="92" width="380" height="300" rx="14" fill="#fbf9f3" stroke="#d6cfc2" stroke-width="1.5"/>
+  <text x="290" y="120" font-size="11" fill="#9a9287">模块一 › 小节一 › 赋值</text>
+  <text x="290" y="146" font-size="16" font-weight="700" fill="#262219">变量改名</text>
+  <g font-size="11">
+    <circle cx="296" cy="170" r="4" fill="#b3705f"/><text x="306" y="174" fill="#262219">讲解</text>
+    <line x1="336" y1="170" x2="360" y2="170" stroke="#d6cfc2"/>
+    <circle cx="372" cy="170" r="4" fill="none" stroke="#9a9287"/><text x="382" y="174" fill="#9a9287">出题</text>
+    <line x1="412" y1="170" x2="436" y2="170" stroke="#d6cfc2"/>
+    <circle cx="448" cy="170" r="4" fill="none" stroke="#9a9287"/><text x="458" y="174" fill="#9a9287">纠错</text>
+    <line x1="488" y1="170" x2="512" y2="170" stroke="#d6cfc2"/>
+    <circle cx="524" cy="170" r="4" fill="none" stroke="#9a9287"/><text x="534" y="174" fill="#9a9287">巩固</text>
+  </g>
+  <rect x="290" y="190" width="340" height="1" fill="#d6cfc2"/>
+  <text x="290" y="214" font-size="12" fill="#5c564e">只讲课程里最小的这一个点：</text>
+  <text x="290" y="234" font-size="12" fill="#5c564e">一段大白话 + 一个示例 + 易错提醒</text>
+  <rect x="290" y="248" width="340" height="62" rx="9" fill="#171310"/>
+  <text x="304" y="272" font-size="12" font-family="'Cascadia Code',Consolas,monospace" fill="#e8e4d8">x = 1</text>
+  <text x="304" y="292" font-size="12" font-family="'Cascadia Code',Consolas,monospace" fill="#e8e4d8">x = 2  # 标签换值</text>
+  <rect x="290" y="322" width="150" height="34" rx="9" fill="#b3705f"/>
+  <text x="306" y="344" font-size="12" fill="#fbf9f3">看懂了，出题 →</text>
+  <text x="452" y="344" font-size="11" fill="#9a9287">问老师框常驻底部</text>
+
+  <!-- 右：统一代码区 -->
+  <rect x="674" y="92" width="250" height="300" rx="14" fill="#fbf9f3" stroke="#d6cfc2" stroke-width="1.5"/>
+  <rect x="690" y="108" width="70" height="24" rx="7" fill="#171310"/>
+  <text x="702" y="124" font-size="11" fill="#e8e4d8">Python</text>
+  <rect x="856" y="108" width="52" height="24" rx="7" fill="#b3705f"/>
+  <text x="868" y="124" font-size="11" fill="#fbf9f3">运行 ▶</text>
+  <rect x="690" y="142" width="218" height="150" rx="9" fill="#171310"/>
+  <text x="702" y="166" font-size="11" font-family="'Cascadia Code',Consolas,monospace" fill="#9a9287">1</text>
+  <text x="720" y="166" font-size="11" font-family="'Cascadia Code',Consolas,monospace" fill="#e8e4d8">x = 2</text>
+  <text x="702" y="186" font-size="11" font-family="'Cascadia Code',Consolas,monospace" fill="#9a9287">2</text>
+  <text x="720" y="186" font-size="11" font-family="'Cascadia Code',Consolas,monospace" fill="#e8e4d8">print(x)</text>
+  <rect x="690" y="300" width="218" height="40" rx="9" fill="#e8e4d8"/>
+  <text x="702" y="316" font-size="10" fill="#9a9287">CONSOLE · 输出</text>
+  <text x="702" y="332" font-size="11" font-family="'Cascadia Code',Consolas,monospace" fill="#5c7a67">2</text>
+  <text x="690" y="362" font-size="11" fill="#9a9287">Monaco 本地打包 · 纸白/夜黑</text>
+  <text x="690" y="380" font-size="11" fill="#9a9287">沙箱判题 / HTML 实时预览</text>
+
+  <!-- 连接关系 -->
+  <defs>
+    <marker id="ar" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
+      <path d="M0,0 L6,3 L0,6" fill="none" stroke="#5c564e" stroke-width="1.4"/>
+    </marker>
+  </defs>
+  <line x1="246" y1="242" x2="266" y2="242" stroke="#5c564e" stroke-width="1.4" marker-end="url(#ar)"/>
+  <text x="247" y="232" font-size="10" fill="#5c564e">选点</text>
+  <line x1="650" y1="242" x2="670" y2="242" stroke="#5c564e" stroke-width="1.4" marker-end="url(#ar)"/>
+  <text x="651" y="232" font-size="10" fill="#5c564e">提交</text>
+
+  <text x="36" y="428" font-size="12" fill="#5c564e">左栏选知识点 → 中栏讲透这一个点 → 右栏动手写与判题；「问老师」只围绕当前点、提示不给答案。</text>
+</svg>

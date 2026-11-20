@@ -1,0 +1,79 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 460" font-family="'Noto Sans SC','PingFang SC','Microsoft YaHei',sans-serif">
+  <rect x="0" y="0" width="960" height="460" rx="18" fill="#f1eee6"/>
+  <text x="36" y="46" font-size="20" font-weight="700" fill="#262219">手机布局 · 单栏 + 底部页签</text>
+  <text x="36" y="70" font-size="12" fill="#9a9287">≤767px 自动切换；桌面布局保持不变</text>
+
+  <!-- 手机一：讲解态 -->
+  <rect x="52" y="92" width="250" height="330" rx="22" fill="#fbf9f3" stroke="#d6cfc2" stroke-width="1.5"/>
+  <rect x="66" y="106" width="222" height="34" rx="9" fill="#e8e4d8"/>
+  <text x="76" y="128" font-size="11" fill="#5c564e">‹ 书架</text>
+  <text x="140" y="128" font-size="12" font-weight="700" fill="#262219">Python</text>
+  <text x="244" y="128" font-size="11" fill="#5c564e">目录</text>
+  <rect x="66" y="148" width="222" height="30" rx="9" fill="#e8e4d8" opacity="0.6"/>
+  <rect x="70" y="152" width="106" height="22" rx="7" fill="#fbf9f3" stroke="#d6cfc2"/>
+  <text x="104" y="167" font-size="11" fill="#9d5f50">讲解</text>
+  <text x="204" y="167" font-size="11" fill="#5c564e">代码区</text>
+  <rect x="66" y="186" width="222" height="180" rx="10" fill="#fbf9f3" stroke="#d6cfc2"/>
+  <text x="78" y="208" font-size="10" fill="#9a9287">模块一 › 小节一</text>
+  <text x="78" y="228" font-size="13" font-weight="700" fill="#262219">变量改名</text>
+  <text x="78" y="250" font-size="10" fill="#5c564e">卡头随正文一起滚动 ↓</text>
+  <rect x="78" y="260" width="198" height="1" fill="#d6cfc2"/>
+  <text x="78" y="280" font-size="10" fill="#5c564e">变量名只是贴在值上的标签…</text>
+  <rect x="78" y="290" width="198" height="40" rx="7" fill="#171310"/>
+  <text x="88" y="314" font-size="10" font-family="'Cascadia Code',Consolas,monospace" fill="#e8e4d8">x = 2</text>
+  <text x="78" y="348" font-size="10" fill="#5c564e">阅读区拿到几乎整屏高度</text>
+  <rect x="66" y="374" width="222" height="34" rx="9" fill="#f4f1e9" stroke="#d6cfc2"/>
+  <g font-size="10" fill="#9a9287">
+    <text x="86" y="395" fill="#9d5f50">学习</text>
+    <text x="140" y="395">练习</text>
+    <text x="194" y="395">笔记</text>
+    <text x="248" y="395">我的</text>
+  </g>
+  <circle cx="152" cy="381" r="6" fill="#b3705f"/>
+  <text x="149" y="385" font-size="8" fill="#fbf9f3">2</text>
+  <text x="112" y="440" font-size="11" fill="#5c564e">讲解态：长文上下滑读</text>
+
+  <!-- 手机二：代码区态 -->
+  <rect x="352" y="92" width="250" height="330" rx="22" fill="#fbf9f3" stroke="#d6cfc2" stroke-width="1.5"/>
+  <rect x="366" y="106" width="222" height="34" rx="9" fill="#e8e4d8"/>
+  <text x="376" y="128" font-size="11" fill="#5c564e">‹ 书架</text>
+  <text x="440" y="128" font-size="12" font-weight="700" fill="#262219">Python</text>
+  <text x="544" y="128" font-size="11" fill="#5c564e">目录</text>
+  <rect x="366" y="148" width="222" height="30" rx="9" fill="#e8e4d8" opacity="0.6"/>
+  <text x="404" y="167" font-size="11" fill="#5c564e">讲解</text>
+  <rect x="478" y="152" width="106" height="22" rx="7" fill="#fbf9f3" stroke="#d6cfc2"/>
+  <text x="508" y="167" font-size="11" fill="#9d5f50">代码区</text>
+  <rect x="366" y="186" width="222" height="180" rx="10" fill="#171310"/>
+  <text x="378" y="210" font-size="10" font-family="'Cascadia Code',Consolas,monospace" fill="#9a9287">1</text>
+  <text x="394" y="210" font-size="10" font-family="'Cascadia Code',Consolas,monospace" fill="#e8e4d8">x = 2</text>
+  <text x="378" y="228" font-size="10" font-family="'Cascadia Code',Consolas,monospace" fill="#9a9287">2</text>
+  <text x="394" y="228" font-size="10" font-family="'Cascadia Code',Consolas,monospace" fill="#e8e4d8">print(x)</text>
+  <rect x="366" y="374" width="222" height="34" rx="9" fill="#f4f1e9" stroke="#d6cfc2"/>
+  <g font-size="10" fill="#9a9287">
+    <text x="386" y="395" fill="#9d5f50">学习</text>
+    <text x="440" y="395">练习</text>
+    <text x="494" y="395">笔记</text>
+    <text x="548" y="395">我的</text>
+  </g>
+  <text x="404" y="440" font-size="11" fill="#5c564e">代码区态：切页签不丢已写内容</text>
+
+  <!-- 右侧要点 -->
+  <g font-size="12" fill="#5c564e">
+    <circle cx="668" cy="116" r="4" fill="#b3705f"/>
+    <text x="682" y="121">底部四页签常驻，练习带待复习徽标</text>
+    <circle cx="668" cy="152" r="4" fill="#b3705f"/>
+    <text x="682" y="157">讲解 / 代码区分段页签，两面板保持挂载</text>
+    <text x="682" y="175" fill="#9a9287">（Monaco 布局与编辑状态不丢）</text>
+    <circle cx="668" cy="206" r="4" fill="#6d8a77"/>
+    <text x="682" y="211">目录收进右抽屉（88vw 毛玻璃）</text>
+    <text x="682" y="229" fill="#9a9287">自动展开当前点所在模块</text>
+    <circle cx="668" cy="260" r="4" fill="#6d8a77"/>
+    <text x="682" y="265">卡头随正文滚动，阅读窗口约 +58%</text>
+    <circle cx="668" cy="296" r="4" fill="#6d8a77"/>
+    <text x="682" y="301">提问框与主动作钉在底部，随时可点</text>
+    <circle cx="668" cy="332" r="4" fill="#9a9287"/>
+    <text x="682" y="337">safe-area 适配刘海屏 / home 指示条</text>
+    <circle cx="668" cy="368" r="4" fill="#9a9287"/>
+    <text x="682" y="373">PWA：可添加到主屏幕，断网可开界面</text>
+  </g>
+</svg>

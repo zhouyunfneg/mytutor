@@ -21,6 +21,40 @@
 - **单用户安全**：口令登录（scrypt 哈希），HttpOnly cookie 会话 7 天；生产部署走 HTTPS。
 - **手机可用 + PWA**：窄屏（≤767px）自动切单栏移动布局——底部四页签、讲解/代码区分段页签、目录右抽屉；手机讲解区卡头随正文一起滚动，把高度让给阅读。桌面布局保持不变。支持"添加到主屏幕"安装为 PWA；Service Worker 只缓存静态资源（绝不缓存 /api），断网仍可打开界面。
 
+## 界面预览
+
+> 以下为本地演示数据截图（mock 模型 / 沙箱），仅展示界面与交互，不代表真实账号进度。
+
+**桌面 · 三栏同屏**
+
+| 讲解：最小知识点 + 示例 + 示意图 | 出题：动手小题 + 代码区判题 |
+| --- | --- |
+| ![桌面讲解页](docs/images/desktop-learn.png) | ![桌面出题页](docs/images/desktop-exercise.png) |
+
+| 练习：到期复习 / 错题本 / 统计 | 笔记：AI 自动归纳 + 手动笔记 |
+| --- | --- |
+| ![桌面练习页](docs/images/desktop-practice.png) | ![桌面笔记页](docs/images/desktop-notes.png) |
+
+**手机 · 单栏 + 底部页签（≤767px 自动切换）**
+
+| 书架 | 讲解（长文上下滑读） | 代码区（切页签不丢内容） | 练习 |
+| --- | --- | --- | --- |
+| ![手机书架](docs/images/mobile-bookshelf.png) | ![手机讲解](docs/images/mobile-learn.png) | ![手机代码区](docs/images/mobile-code.png) | ![手机练习](docs/images/mobile-practice.png) |
+
+## 布局与教学循环
+
+**微知识点教学循环**：一次只学一个最小点，你点按钮才前进。
+
+![微知识点教学循环](docs/images/teach-loop.svg)
+
+**桌面三栏布局**：左选点 → 中讲透 → 右动手。
+
+![桌面布局示意](docs/images/layout-desktop.svg)
+
+**手机单栏布局**：底部页签 + 讲解/代码区页签 + 目录抽屉；卡头随正文滚动让出阅读高度。
+
+![手机布局示意](docs/images/layout-mobile.svg)
+
 ## 架构
 
 ```
