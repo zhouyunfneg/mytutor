@@ -22,6 +22,9 @@ function ProgressBar({ done, total }) {
   );
 }
 
+// 状态词表与"安装中"集合对外共享：首页语言卡与书架用同一套判定，避免两处各写一份漂移
+export { STATUS as PACK_STATUS, ACTIVE as PACK_ACTIVE };
+
 export default function PackPanel({ onSelectPack, onResume, onRestart, onDetailChange, activePackId, session, autoOpenId = null }) {
   const [packs, setPacks] = useState(null);
   const [detail, setDetail] = useState(null); // {id, log, tree, status, progress}

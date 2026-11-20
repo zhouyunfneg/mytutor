@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import CodePanel from '../components/CodePanel.jsx';
-import PackPanel from '../components/PackPanel.jsx';
+import PackPanel, { PACK_STATUS, PACK_ACTIVE } from '../components/PackPanel.jsx';
 import TeachCard from '../components/TeachCard.jsx';
 import SegTabs from '../components/SegTabs.jsx';
 import { api } from '../api.js';
@@ -48,6 +48,11 @@ export default function Learn({ homeTick = 0 }) {
   const [packPanelKey, setPackPanelKey] = useState(0);
   const [collapsed, setCollapsed] = useState(() => localStorage.getItem('mytutor-book-collapsed') === '1');
   const [packsMeta, setPacksMeta] = useState(null);
+  // 首页语言卡整张可点：就绪直接进去学；未装则装好自动进去学；安装中翻到左栏看进度
+  const [shelfOpenId, setShelfOpenId] = useState(null); // 让左栏学习书直接翻到某本（重挂载生效）
+  const [introBusy, setIntroBusy] = useState(null);     // 刚点下安装、状态还没回来的那一瞬
+  const [introErr, setIntroErr] = useState(null);       // {id, msg} 安装失败原因，照实显示不吞掉
+  const waitInstallRef = useRef(null);                  // 等它装完自动开学的 pid
   // 开包进行中屏蔽 refresh：packId 变化触发的 GET 可能早于 start 存盘返回 null，
   // 晚到会覆盖 start 的结果，新课首次「开始学习」会卡在空态
   const openingRef = useRef(false);
@@ -63,6 +68,7 @@ export default function Learn({ homeTick = 0 }) {
     setBookOpen(false);
     setDrawerOpen(false);
     setMTab('teach');
+    setShelfOpenId(null);
     setPackPanelKey((k) => k + 1);
   };
 
@@ -76,13 +82,48 @@ export default function Learn({ homeTick = 0 }) {
     setPackId(null);
     setSession(null);
     setBookOpen(false);
+    setShelfOpenId(null);
     setPackPanelKey((k) => k + 1);
   }, [homeTick]);
 
+  const refreshPacks = useCallback(async () => {
+    try {
+      const list = await api.get('/api/packs');
+      setPacksMeta(list);
+      return list;
+    } catch {
+      return null;
+    }
+  }, []);
+
   // 书脊进度：当前包的总点数；未选包时显示最近在读的那本
   useEffect(() => {
-    api.get('/api/packs').then(setPacksMeta).catch(() => setPacksMeta(null));
-  }, [packId]);
+    refreshPacks();
+  }, [packId, refreshPacks]);
+
+  // 有包在安装中 → 轮询，让首页卡片的状态实时走（抓取文档 / 建索引 / 生成技能树）
+  useEffect(() => {
+    if (!(packsMeta || []).some((p) => PACK_ACTIVE.has(p.status))) return undefined;
+    const t = setInterval(refreshPacks, 3000);
+    return () => clearInterval(t);
+  }, [packsMeta, refreshPacks]);
+
+  // 点卡片触发的安装：装好自动进入学习；失败就停在那张卡上显示原因，可再点重试
+  useEffect(() => {
+    const pid = waitInstallRef.current;
+    if (!pid || !packsMeta) return;
+    const p = packsMeta.find((x) => x.id === pid);
+    if (!p) return;
+    if (p.status === 'ready') {
+      waitInstallRef.current = null;
+      setIntroBusy(null);
+      openPack(pid);
+    } else if (p.status === 'error') {
+      waitInstallRef.current = null;
+      setIntroBusy(null);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [packsMeta]);
 
   const railPack = packId
     ? (packsMeta || []).find((p) => p.id === packId)
@@ -145,6 +186,45 @@ export default function Learn({ homeTick = 0 }) {
   };
 
   const lockLang = packId ? LOCK_LANG[packId] || null : null;
+
+  // 让左栏学习书直接翻到某本书（看安装日志 / 目录）：收纳态先展开，再重挂载书架
+  const openShelfDetail = (pid) => {
+    setCollapsed(false);
+    setShelfOpenId(pid);
+    setPackPanelKey((k) => k + 1);
+  };
+
+  // 首页语言卡点击：与书架里同一套语义，只是省掉"先找左栏再点书名"这两步
+  const onIntroClick = async (pid) => {
+    if (introBusy === pid) return; // 启动窗口内重复点：不再发第二次安装（后端会判"正在安装中"）
+    const p = (packsMeta || []).find((x) => x.id === pid);
+    const status = p?.status || 'not_installed';
+    if (status === 'ready') {
+      setIntroErr(null);
+      openPack(pid);
+      return;
+    }
+    if (PACK_ACTIVE.has(status)) {
+      openShelfDetail(pid); // 正在装：翻到书里看实时日志，不重复触发安装
+      return;
+    }
+    setIntroBusy(pid);
+    setIntroErr(null);
+    waitInstallRef.current = pid;
+    try {
+      const r = await api.post(`/api/packs/${pid}/install`);
+      if (r && r.ok === false) {
+        waitInstallRef.current = null;
+        setIntroErr({ id: pid, msg: r.error || '安装失败，可再点一次重试' });
+      }
+      await refreshPacks();
+    } catch (e) {
+      waitInstallRef.current = null;
+      setIntroErr({ id: pid, msg: String(e.message || e) });
+    } finally {
+      setIntroBusy(null);
+    }
+  };
 
   // ── 手机布局：书架全屏 ↔ 学习视图（书头栏 + 讲解|代码区页签 + 目录抽屉）──
   if (isMobile) {
@@ -316,6 +396,7 @@ export default function Learn({ homeTick = 0 }) {
           <div className="flex-1 min-h-0 p-4 pt-3">
             <PackPanel
               key={packPanelKey}
+              autoOpenId={shelfOpenId}
               onSelectPack={onSelectPack}
               onResume={(pid) => openPack(pid)}
               onRestart={(pid) => openPack(pid, { restart: true })}
@@ -342,31 +423,84 @@ export default function Learn({ homeTick = 0 }) {
             <div className="m-auto w-full max-w-[680px]">
               <div className="text-center mb-6">
                 <img src={LOGO} alt="MyTutor" className="w-12 h-12 mx-auto mb-4 select-none" />
-                <h3 className="font-display text-xl font-bold mb-2">先认识语言，再选一门开始</h3>
+                <h3 className="font-display text-xl font-bold mb-2">认识语言，点一门直接开始</h3>
                 <p className="text-xs text-ink-faint">讲一小段 → 做小题 → 纠错 → 巩固，你点「下一个」才前进。</p>
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5">
                 {(packsMeta?.length
                   ? packsMeta.map((p) => LANG_INTRO.find((x) => x.id === p.id)).filter(Boolean)
                   : LANG_INTRO
-                ).map((l) => (
-                  <div key={l.id} className="rounded-xl border border-line/70 bg-paper-deep/50 px-4 py-3">
-                    <div className="flex items-center gap-1.5">
-                      <span className="font-display text-[15px] font-bold">{l.name}</span>
-                      {(packsMeta || []).some((p) => p.id === l.id && p.curated) && (
-                        <span
-                          className="shrink-0 text-[9px] font-medium px-1.5 py-0.5 rounded-full border border-pine/35 text-pine bg-pine/10"
-                          title="按零基础教程蓝图精编的完整学习主线"
-                        >
-                          精编
+                ).map((l) => {
+                  const p = (packsMeta || []).find((x) => x.id === l.id);
+                  const status = p?.status || 'not_installed';
+                  const active = PACK_ACTIVE.has(status);
+                  const busy = introBusy === l.id;
+                  const prog = p?.progress || { started: false, done: [], total: 0, step: 'none' };
+                  const pct = prog.total > 0 ? Math.round((prog.done.length / prog.total) * 100) : 0;
+                  const st = PACK_STATUS[status] || PACK_STATUS.not_installed;
+                  const starting = busy && !active; // 安装请求已在路上、状态还没回来的那一瞬
+                  const action = status === 'ready'
+                    ? (prog.started ? (prog.step === 'pack_done' ? '回顾' : '继续学习') : '开始学习')
+                    : starting ? '启动中' : active ? '看安装进度' : status === 'error' ? '重试安装' : '安装并学习';
+                  const err = introErr?.id === l.id ? introErr.msg : null;
+                  return (
+                    <button
+                      key={l.id}
+                      type="button"
+                      className="lang-card group min-w-0 rounded-xl border border-line/70 bg-paper-deep/50 px-4 py-3 text-left"
+                      onClick={() => onIntroClick(l.id)}
+                      title={status === 'ready' ? `${action} · ${l.name}` : `${action} · ${st.label}`}
+                    >
+                      <span className="flex items-center gap-1.5 min-w-0">
+                        <span className="font-display text-[15px] font-bold truncate min-w-0">{l.name}</span>
+                        {p?.curated && (
+                          <span
+                            className="shrink-0 text-[9px] font-medium px-1.5 py-0.5 rounded-full border border-pine/35 text-pine bg-pine/10"
+                            title="按零基础教程蓝图精编的完整学习主线"
+                          >
+                            精编
+                          </span>
+                        )}
+                        <span className="flex-1" />
+                        <span className="lang-arrow shrink-0 w-5 h-5 grid place-items-center rounded-full border border-line/70 bg-card/70 text-ink-faint">
+                          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                            <path d="M9 18l6-6-6-6" />
+                          </svg>
+                        </span>
+                      </span>
+                      <span className="lang-blurb block text-[13px] leading-6 text-ink-soft mt-1">{l.blurb}</span>
+                      {prog.started && prog.total > 0 && (
+                        <span className="block mt-2">
+                          <span className="block h-1.5 rounded-full bg-paper-deep overflow-hidden">
+                            <span className="block h-full bg-pine transition-all duration-500" style={{ width: `${pct}%` }} />
+                          </span>
+                          <span className="block text-[10px] text-ink-faint mt-1">
+                            {prog.step === 'pack_done' ? '已学完' : `已学 ${prog.done.length}/${prog.total} 点`}
+                          </span>
                         </span>
                       )}
-                    </div>
-                    <p className="text-[13px] leading-6 text-ink-soft mt-1">{l.blurb}</p>
-                  </div>
-                ))}
+                      {/* 状态字与行动字同一行，窄栏自动换行（放顶部会挤爆语言名 → 横向溢出） */}
+                      <span className="flex flex-wrap items-center gap-x-1.5 gap-y-1 mt-2 text-[11px]">
+                        {status !== 'ready' && (
+                          <span className={`shrink-0 text-[10px] ${st.cls}`}>
+                            {(active || busy) && <span className="inline-block animate-pulse">● </span>}
+                            {busy && !active ? '启动中…' : st.label}
+                          </span>
+                        )}
+                        <span className={
+                          status === 'ready' ? 'text-pine' : status === 'error' ? 'text-cinnabar-deep' : 'text-cinnabar'
+                        }>
+                          {action}{starting ? '…' : ' →'}
+                        </span>
+                      </span>
+                      {err && <span className="block text-[10px] text-cinnabar-deep mt-1 leading-4">{err}</span>}
+                    </button>
+                  );
+                })}
               </div>
-              <p className="text-xs text-ink-faint mt-5 text-center">在左栏点书名安装并打开语言包；进度记在服务器，换电脑接着学。</p>
+              <p className="text-xs text-ink-faint mt-5 text-center">
+                点卡片直接进去学；没装的语言会自动装好再进入（首次抓文档+生成技能树要等几分钟）。进度记在服务器，换电脑接着学。
+              </p>
             </div>
           </div>
         )}
