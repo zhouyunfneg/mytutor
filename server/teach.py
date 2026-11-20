@@ -94,9 +94,9 @@ def _explain_system() -> str:
 # 判题规则按判题模式分开喂，绝不整包全给：
 # 曾把编译型"题面必须要求打印到 stdout"喂给 HTML 题，模型照搬要求学习者写 console.log（没学过的 JS）→ 超纲卡死。
 JUDGE_RULES_SANDBOX = """judge 要求（sandbox）：
-- append 是平台在学习者代码之后运行的判题代码。平台已把学习者代码打印到 stdout/console 的全部输出捕获为变量 _mt_out（字符串），也可直接引用学习者定义的变量。用断言检查行为（覆盖正常+一个边界），全部通过后最后一行 print("ALL_PASS")（JavaScript/TypeScript 用 console.log("ALL_PASS")）。不要替学习者实现功能；禁止读取或 exec 源文件、禁止重新运行学习者代码。"""
+- append 是平台在学习者代码之后运行的判题代码。平台已把学习者代码打印到 stdout/console 的全部输出捕获为变量 _mt_out（字符串），也可直接引用学习者定义的变量。JavaScript/TypeScript 另已提供 _mt_lines（数组，输出按行拆好、去空白），直接用即可，不要再声明 _mt_out 或 _mt_lines。用断言检查行为（覆盖正常+一个边界），全部通过后最后一行 print("ALL_PASS")（JavaScript/TypeScript 用 console.log("ALL_PASS")）。不要替学习者实现功能；禁止读取或 exec 源文件、禁止重新运行学习者代码。判题失败时只输出简短失败标记（如 FAIL: 输出不符），绝不打印期望值、正确答案或断言内容——运行结果会回显给学习者。"""
 JUDGE_RULES_COMPILED = """judge 要求（编译型 sandbox）：
-- 平台先单独运行学习者代码捕获输出，再把输出注入判题程序的 _mt_out 字符串；append 是判题语句序列（平台已包好 main 与常用导入/辅助函数），只能靠 _mt_out 判断（包含/相等/行数等），引用不到学习者的变量和函数。因此题面必须要求学习者把结果打印到 stdout。平台只运行单个源文件，不支持多文件编译/链接或手动编译步骤，题目必须能用一个源文件完成。append 最后一行输出 ALL_PASS：c 用 printf 或 puts，cpp 用 printf 或 std::cout，go 用 fmt.Println，rust 用 println!，csharp 用 Console.WriteLine。不要替学习者实现功能；禁止读取或 exec 源文件。"""
+- 平台先单独运行学习者代码捕获输出，再把输出注入判题程序的 _mt_out 字符串；append 是判题语句序列（平台已包好 main 与常用导入/辅助函数），只能靠 _mt_out 判断（包含/相等/行数等），引用不到学习者的变量和函数。因此题面必须要求学习者把结果打印到 stdout。平台只运行单个源文件，不支持多文件编译/链接或手动编译步骤，题目必须能用一个源文件完成。append 最后一行输出 ALL_PASS：c 用 printf 或 puts，cpp 用 printf 或 std::cout，go 用 fmt.Println，rust 用 println!，csharp 用 Console.WriteLine。不要替学习者实现功能；禁止读取或 exec 源文件。判题失败时只输出简短失败标记（如 FAIL），绝不打印期望值或正确答案——运行结果会回显给学习者。"""
 JUDGE_RULES_AI = """judge 要求（ai，页面预览类）：
 - checklist 是 3~5 条可逐条核对的中文检查项，只核对学习者写的代码本身与页面呈现效果。
 - 这是网页题：学习者只写 HTML/CSS，绝不要求写 JavaScript、console.log、document.write 或把任何内容打印到 stdout。
@@ -327,7 +327,10 @@ def _sandbox_full(code: str, append: str, lang: str) -> str:
             "_mt_g['_mt_out'] = _mt_buf.getvalue()\n"
             f"exec(compile({append!r}, '<judge>', 'exec'), _mt_g)\n"
         )
-    # javascript / typescript：临时接管 console.log 收集输出，判题前还原
+    # javascript / typescript：临时接管 console.log 收集输出，判题前还原。
+    # append 包进独立块级作用域：实测模型会自己写 const _mt_lines = _mt_out.split(...)，
+    # 与底座的同名 const 撞成 SyntaxError（任何答案都判错，提示还反过来怪学习者）。
+    # 块内仍可读到外层 _mt_out / _mt_lines 与学习者定义的变量，重声明则只遮蔽不报错。
     return (
         "const _mt_lines = [];\n"
         "const _mt_origLog = console.log;\n"
@@ -335,7 +338,7 @@ def _sandbox_full(code: str, append: str, lang: str) -> str:
         + code + "\n"
         "console.log = _mt_origLog;\n"
         "const _mt_out = _mt_lines.join('\\n');\n"
-        + append + "\n"
+        "{\n" + append + "\n}\n"
     )
 
 
@@ -783,10 +786,18 @@ async def _summary(pack_id, s, p, kind, limit, points, step) -> dict:
 
 
 def _public_exercise(ex: dict | None) -> dict | None:
-    """choice 题的 answer 只留服务端：出口剥离，前端拿到的只有题干与选项。"""
-    if not ex or not isinstance(ex.get("judge"), dict) or ex["judge"].get("mode") != "choice":
+    """判题细节只留服务端：出口白名单，前端只拿 mode 与 choice 的 options。
+
+    不能只黑名单剥 answer——sandbox 的 append 断言、ai 的 checklist 同样是答案，
+    留在 payload 里学习者开 devtools 就能读到。前端只用 mode/options 两项。
+    """
+    if not ex or not isinstance(ex.get("judge"), dict):
         return ex
-    return {**ex, "judge": {k: v for k, v in ex["judge"].items() if k != "answer"}}
+    j = ex["judge"]
+    pub = {"mode": j.get("mode")}
+    if j.get("mode") == "choice":
+        pub["options"] = j.get("options", [])
+    return {**ex, "judge": pub}
 
 
 def state(pack_id: str) -> dict | None:

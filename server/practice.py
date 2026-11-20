@@ -6,6 +6,8 @@
 - 间隔复习：简化 SM-2，做对间隔 1→3→7→15→30 天封顶，做错归 1 天；
   教学循环学完一个点自动登记（teach.advance 里 lazy import 调用 seed）。
 存储：data/practice.json 单文件，单用户无并发负担，不加依赖。
+题库/排期/上次出题按「包:点」复合键存（各包点号同一套编号，裸点号会跨包串题）；
+旧版裸点号数据在 _load 时按条目 pack_id 自动归位，复习进度与错题本不丢。
 """
 from __future__ import annotations
 
@@ -21,9 +23,62 @@ INTERVALS = [1, 3, 7, 15, 30]  # 做对第 n 次后的间隔天数（封顶 30�
 BANK_CAP = 6
 
 
+def _k(pack_id: str, point_id: str) -> str:
+    """题库/排期/上次出题的存键：必须带包名。
+
+    各语言包的点号是同一套编号（html-css 与 javascript 都有 m1s1p1），
+    只按裸 point_id 存会跨包串题：JS 练习取到 HTML/CSS 的旧题、提交报"题目不存在"，
+    且 JS 学完的点登记不进复习表（键被别的包占了）。
+    """
+    return f"{pack_id}:{point_id}"
+
+
+def _migrate(st: dict) -> bool:
+    """旧数据按裸 point_id 存 → 按条目里记的 pack_id 归位到「包:点」键。
+
+    只搬认得出归属的条目（认不出就原样留着，不猜）；已有的新键不被旧数据覆盖，
+    学习者的复习次数/到期日与题库缓存都保留。
+    """
+    changed = False
+    bank = st.setdefault("bank", {})
+    for key in [k for k in bank if ":" not in k]:
+        entries = bank[key]
+        pid = next((x.get("pack_id") for x in entries if x.get("pack_id")), None)
+        if not pid:
+            continue
+        cur = bank.setdefault(_k(pid, key), [])
+        have = {x.get("id") for x in cur}
+        cur.extend(x for x in entries if x.get("id") not in have)
+        del bank[key]
+        changed = True
+    sched = st.setdefault("sched", {})
+    for key in [k for k in sched if ":" not in k]:
+        e = sched[key]
+        pid = e.get("pack_id")
+        if not pid:
+            continue
+        sched.setdefault(_k(pid, key), e)
+        del sched[key]
+        changed = True
+    last = st.setdefault("last", {})
+    for key in [k for k in last if ":" not in k]:
+        pr_id = last[key]
+        pid = next((x.get("pack_id") for entries in bank.values() for x in entries
+                    if x.get("id") == pr_id), None)
+        if not pid:
+            continue
+        last.setdefault(_k(pid, key), pr_id)
+        del last[key]
+        changed = True
+    return changed
+
+
 def _load() -> dict:
     if PATH.exists():
-        return json.loads(PATH.read_text(encoding="utf-8"))
+        st = json.loads(PATH.read_text(encoding="utf-8"))
+        if _migrate(st):
+            _save(st)
+        return st
     return {"bank": {}, "sched": {}, "wrong": [], "last": {}, "submitted": 0, "passed": 0}
 
 
@@ -77,19 +132,26 @@ answer 为正确下标（从 0 开始）；干扰项用新手常见误解；每�
 
 
 def _public_pr(pr: dict) -> dict:
-    """出口剥离 choice 的 answer：前端只拿题干与选项。"""
+    """出口白名单：前端只拿 mode 与 choice 的 options。
+
+    sandbox 的 append 断言、ai 的 checklist、choice 的 answer 都属答案，一律不出服务端。
+    """
     j = pr.get("judge")
-    if isinstance(j, dict) and j.get("mode") == "choice":
-        return {**pr, "judge": {k: v for k, v in j.items() if k != "answer"}}
-    return pr
+    if not isinstance(j, dict):
+        return pr
+    pub = {"mode": j.get("mode")}
+    if j.get("mode") == "choice":
+        pub["options"] = j.get("options", [])
+    return {**pr, "judge": pub}
 
 
 # ── 排期 ──────────────────────────────────────────────────────────────
 def seed(pack_id: str, point_id: str) -> None:
     """教学循环学完一个点时登记复习表：明天第一次复习。"""
     st = _load()
-    if point_id not in st["sched"]:
-        st["sched"][point_id] = {
+    key = _k(pack_id, point_id)
+    if key not in st["sched"]:
+        st["sched"][key] = {
             "pack_id": pack_id, "point_id": point_id,
             "reps": 0, "interval": 1, "due": _iso(_today() + timedelta(days=1)),
         }
@@ -97,20 +159,22 @@ def seed(pack_id: str, point_id: str) -> None:
 
 
 def _sched_pass(st: dict, pack_id: str, point_id: str) -> dict:
-    e = st["sched"].get(point_id) or {"pack_id": pack_id, "point_id": point_id, "reps": 0}
+    key = _k(pack_id, point_id)
+    e = st["sched"].get(key) or {"pack_id": pack_id, "point_id": point_id, "reps": 0}
     e["reps"] = min(e.get("reps", 0) + 1, len(INTERVALS))
     e["interval"] = INTERVALS[e["reps"] - 1]
     e["due"] = _iso(_today() + timedelta(days=e["interval"]))
-    st["sched"][point_id] = e
+    st["sched"][key] = e
     return e
 
 
 def _sched_fail(st: dict, pack_id: str, point_id: str) -> dict:
-    e = st["sched"].get(point_id) or {"pack_id": pack_id, "point_id": point_id}
+    key = _k(pack_id, point_id)
+    e = st["sched"].get(key) or {"pack_id": pack_id, "point_id": point_id}
     e["reps"] = 0
     e["interval"] = 1
     e["due"] = _iso(_today() + timedelta(days=1))
-    st["sched"][point_id] = e
+    st["sched"][key] = e
     return e
 
 
@@ -154,16 +218,17 @@ async def _generate(pack_id: str, point: dict, avoid: list[str]) -> dict:
 
 
 async def _pick_problem(st: dict, pack_id: str, point: dict) -> dict:
-    bank = st["bank"].setdefault(point["id"], [])
-    last = st["last"].get(point["id"])
+    key = _k(pack_id, point["id"])
+    bank = st["bank"].setdefault(key, [])
+    last = st["last"].get(key)
     fresh = [x for x in bank if x["id"] != last]
     if fresh:
         pr = fresh[0]
     else:
         pr = await _generate(pack_id, point, [x["task"] for x in bank])
         bank.append(pr)
-        st["bank"][point["id"]] = bank[-BANK_CAP:]
-    st["last"][point["id"]] = pr["id"]
+        st["bank"][key] = bank[-BANK_CAP:]
+    st["last"][key] = pr["id"]
     return pr
 
 
@@ -244,7 +309,10 @@ async def next_problem(mode: str, pack_id: str | None = None, point_id: str | No
     if mode == "due":
         dues = due_list()
         if point_id:
-            dues = [d for d in dues if d["point_id"] == point_id] or dues
+            # 点号跨包重复：给了包名就一起过滤，别把别的语言的同号点当成这个点
+            same = [d for d in dues if d["point_id"] == point_id
+                    and (not pack_id or d["pack_id"] == pack_id)]
+            dues = same or dues
         if not dues:
             raise ValueError("今天没有到期的复习点")
         pick = next((d for d in dues if d["point_id"] == point_id), dues[0]) if point_id else dues[0]
@@ -259,7 +327,7 @@ async def next_problem(mode: str, pack_id: str | None = None, point_id: str | No
         raise ValueError(f"技能树里没有点 {point_id}")
     pr = await _pick_problem(st, pack_id, point)
     _save(st)
-    e = st["sched"].get(point_id)
+    e = st["sched"].get(_k(pack_id, point_id))
     return {"mode": mode, "problem": _public_pr(pr), "point": point, "pack_id": pack_id,
             "sched": {"reps": e["reps"], "interval": e["interval"], "due": e["due"]} if e else None}
 

@@ -20,7 +20,10 @@ PACKS: dict[str, dict[str, Any]] = {
     },
     "javascript": {
         "name": "JavaScript",
-        "runtime": "javascript+preview",
+        # 判题路由只认 SANDBOX_LANG 里的键：曾误标 "javascript+preview"，
+        # 导致 JS 出题落到 HTML 的 AI 判题通道（规则明写不许写 JS）、判题语言退化成 python。
+        # 代码区的 HTML 预览页签由前端独立控制，与此标签无关，故这里就是 "javascript"。
+        "runtime": "javascript",
         "sources": [
             {"url": "https://developer.mozilla.org/zh-CN/docs/Web/JavaScript/Guide", "depth": 1, "pages": 30},
         ],
