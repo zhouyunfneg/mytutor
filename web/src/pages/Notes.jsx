@@ -17,9 +17,9 @@ function NoteEditor({ initial, packs, onSave, onCancel, busy }) {
   const [packId, setPackId] = useState(initial?.pack_id || '');
   return (
     <div className="paper-card p-4 fade-up">
-      <div className="flex items-center gap-2 mb-3">
+      <div className="flex items-center gap-2 mb-3 flex-wrap">
         <input
-          className="field flex-1 text-sm font-medium"
+          className="field flex-1 min-w-40 text-sm font-medium"
           placeholder="笔记标题"
           value={title}
           onChange={(e) => setTitle(e.target.value)}
@@ -116,7 +116,7 @@ export default function Notes() {
   const manualCount = notes?.filter((n) => n.kind === 'manual').length || 0;
 
   return (
-    <div className="h-full overflow-y-auto p-6">
+    <div className="h-full overflow-y-auto p-4 md:p-6">
       <div className="max-w-3xl mx-auto flex flex-col gap-4">
         <div className="flex items-start gap-3 fade-up">
           <div className="seal w-11 h-11 shrink-0 flex items-center justify-center text-xl font-bold">笔</div>

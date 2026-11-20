@@ -5,6 +5,7 @@ import Practice from './pages/Practice.jsx';
 import Notes from './pages/Notes.jsx';
 import Me from './pages/Me.jsx';
 import { api } from './api.js';
+import { useIsMobile } from './useIsMobile.js';
 
 const LOGO = `${import.meta.env.BASE_URL}logo.svg`;
 
@@ -70,6 +71,7 @@ export default function App() {
   const [homeTick, setHomeTick] = useState(0);
   const navigate = useNavigate();
   const location = useLocation();
+  const isMobile = useIsMobile();
 
   useEffect(() => {
     api
@@ -97,6 +99,50 @@ export default function App() {
     return <div className="h-full grid place-items-center text-xs text-ink-faint">…</div>;
   }
   if (!authed) return <Login onOk={() => setAuthed(true)} />;
+
+  const routes = (
+    <Routes>
+      <Route path="/" element={<Learn homeTick={homeTick} />} />
+      <Route path="/practice" element={<Practice />} />
+      <Route path="/notes" element={<Notes />} />
+      <Route path="/library" element={<Navigate to="/notes" replace />} />
+      <Route path="/me" element={<Me />} />
+    </Routes>
+  );
+
+  // 手机：底部四页签替代左侧栏；主区域占满剩余高度，页签在正常流里不遮挡内容
+  if (isMobile) {
+    return (
+      <div className="flex flex-col h-full">
+        <main className="flex-1 min-h-0 overflow-hidden">{routes}</main>
+        <nav className="mobile-tabbar shrink-0 flex items-stretch border-t border-line px-1 pt-1">
+          {NAV.map((n) => (
+            <NavLink
+              key={n.to}
+              to={n.to}
+              end={n.to === '/'}
+              onClick={() => { if (n.to === '/') setHomeTick((t) => t + 1); }}
+              className={({ isActive }) =>
+                `flex-1 flex flex-col items-center justify-center gap-0.5 min-h-[52px] py-1.5 rounded-lg text-[10px] transition-colors ${
+                  isActive ? 'text-cinnabar font-medium' : 'text-ink-faint'
+                }`
+              }
+            >
+              <span className="relative">
+                <Icon d={n.icon} />
+                {n.to === '/practice' && dueCount > 0 && (
+                  <span className="absolute -top-1.5 -right-2.5 min-w-[15px] h-[15px] px-0.5 rounded-full bg-cinnabar text-paper text-[9px] font-mono font-bold leading-[15px] text-center">
+                    {dueCount > 9 ? '9+' : dueCount}
+                  </span>
+                )}
+              </span>
+              {n.label}
+            </NavLink>
+          ))}
+        </nav>
+      </div>
+    );
+  }
 
   return (
     <div className="flex h-full">
@@ -143,15 +189,7 @@ export default function App() {
       </aside>
 
       {/* 主区域 */}
-      <main className="flex-1 min-w-0 overflow-hidden">
-        <Routes>
-          <Route path="/" element={<Learn homeTick={homeTick} />} />
-          <Route path="/practice" element={<Practice />} />
-          <Route path="/notes" element={<Notes />} />
-          <Route path="/library" element={<Navigate to="/notes" replace />} />
-          <Route path="/me" element={<Me />} />
-        </Routes>
-      </main>
+      <main className="flex-1 min-w-0 overflow-hidden">{routes}</main>
     </div>
   );
 }

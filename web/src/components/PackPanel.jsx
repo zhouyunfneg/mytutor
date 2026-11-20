@@ -22,7 +22,7 @@ function ProgressBar({ done, total }) {
   );
 }
 
-export default function PackPanel({ onSelectPack, onResume, onRestart, onDetailChange, activePackId, session }) {
+export default function PackPanel({ onSelectPack, onResume, onRestart, onDetailChange, activePackId, session, autoOpenId = null }) {
   const [packs, setPacks] = useState(null);
   const [detail, setDetail] = useState(null); // {id, log, tree, status, progress}
   const [expanded, setExpanded] = useState({}); // 模块折叠状态
@@ -125,6 +125,12 @@ export default function PackPanel({ onSelectPack, onResume, onRestart, onDetailC
     setDetail(null);
     onDetailChange?.(false);
   };
+
+  // 手机目录抽屉：挂载即直接展开指定书的目录（电脑版不传 autoOpenId，行为不变）
+  useEffect(() => {
+    if (autoOpenId) openDetail(autoOpenId);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // ── 书页（详情）视图 ────────────────────────────────────────────────
   if (detail) {

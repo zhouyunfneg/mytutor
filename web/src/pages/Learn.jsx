@@ -2,7 +2,9 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import CodePanel from '../components/CodePanel.jsx';
 import PackPanel from '../components/PackPanel.jsx';
 import TeachCard from '../components/TeachCard.jsx';
+import SegTabs from '../components/SegTabs.jsx';
 import { api } from '../api.js';
+import { useIsMobile } from '../useIsMobile.js';
 
 const LOGO = `${import.meta.env.BASE_URL}logo.svg`;
 
@@ -49,6 +51,20 @@ export default function Learn({ homeTick = 0 }) {
   // 开包进行中屏蔽 refresh：packId 变化触发的 GET 可能早于 start 存盘返回 null，
   // 晚到会覆盖 start 的结果，新课首次「开始学习」会卡在空态
   const openingRef = useRef(false);
+  const isMobile = useIsMobile();
+  // 手机：讲解/代码区分段页签 + 目录抽屉
+  const [mTab, setMTab] = useState('teach');
+  const [drawerOpen, setDrawerOpen] = useState(false);
+
+  // 手机回书架：清选书 + 关抽屉 + 复位页签（保留代码区已写内容，与 LOGO home 一致）
+  const backToShelf = () => {
+    setPackId(null);
+    setSession(null);
+    setBookOpen(false);
+    setDrawerOpen(false);
+    setMTab('teach');
+    setPackPanelKey((k) => k + 1);
+  };
 
   useEffect(() => {
     localStorage.setItem('mytutor-book-collapsed', collapsed ? '1' : '0');
@@ -129,6 +145,97 @@ export default function Learn({ homeTick = 0 }) {
   };
 
   const lockLang = packId ? LOCK_LANG[packId] || null : null;
+
+  // ── 手机布局：书架全屏 ↔ 学习视图（书头栏 + 讲解|代码区页签 + 目录抽屉）──
+  if (isMobile) {
+    const teachEl = (
+      <TeachCard
+        packId={packId}
+        session={session?.error ? { step: 'none' } : session}
+        refresh={refresh}
+        code={mirror.code}
+        onLoadStarter={(starter) => setInject({ lang: lockLang || 'python', code: starter, n: Date.now() })}
+      />
+    );
+    const codeEl = (
+      <CodePanel lockLang={lockLang} inject={inject} onCodeChange={(lang, code) => setMirror({ lang, code })} />
+    );
+    const panelProps = {
+      onSelectPack: (pid, point) => { setDrawerOpen(false); setMTab('teach'); onSelectPack(pid, point); },
+      onResume: (pid) => { setDrawerOpen(false); setMTab('teach'); openPack(pid); },
+      onRestart: (pid) => { setDrawerOpen(false); setMTab('teach'); openPack(pid, { restart: true }); },
+      onDetailChange: setBookOpen,
+      activePackId: packId,
+      session,
+    };
+    return (
+      <div className="flex flex-col h-full">
+        {!packId ? (
+          <div className="flex-1 min-h-0 p-3">
+            <div className="paper-card h-full p-4 flex flex-col fade-up">
+              <div className="shrink-0 flex items-center gap-2 pb-3 mb-3 border-b border-line/60">
+                <img src={LOGO} alt="MyTutor" className="w-7 h-7 select-none" />
+                <span className="font-display text-base font-bold flex-1">学习书</span>
+                <span className="text-[10px] text-ink-faint">选一门开始</span>
+              </div>
+              <div className="flex-1 min-h-0">
+                <PackPanel key={packPanelKey} {...panelProps} />
+              </div>
+            </div>
+          </div>
+        ) : (
+          <>
+            {/* 书头栏：返回书架 + 书名进度 + 目录 */}
+            <div className="shrink-0 flex items-center gap-2 px-3 py-1.5 border-b border-line/60 bg-paper-deep/40">
+              <button type="button" onClick={backToShelf} className="btn-ghost shrink-0 text-xs px-3 min-h-[40px] inline-flex items-center gap-1">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M15 18l-6-6 6-6" /></svg>
+                书架
+              </button>
+              <div className="flex-1 min-w-0">
+                <div className="font-display text-sm font-bold truncate">{railPack?.name || packId}</div>
+                <div className="text-[10px] text-ink-faint font-mono">已学 {railDone}/{railTotal} · {railPct}%</div>
+              </div>
+              <button type="button" onClick={() => setDrawerOpen(true)} className="btn-ghost shrink-0 text-xs px-3 min-h-[40px]">目录</button>
+            </div>
+            {/* 讲解 | 代码区 */}
+            <div className="shrink-0 px-3 py-1">
+              <SegTabs tabs={[{ id: 'teach', label: '讲解' }, { id: 'code', label: '代码区' }]} value={mTab} onChange={setMTab} />
+            </div>
+            {/* 内容：两块都挂载，visibility 切换以保留编辑器状态与 Monaco 布局 */}
+            <div className="flex-1 min-h-0 relative">
+              <div className="absolute inset-0 p-2" style={{ visibility: mTab === 'teach' ? 'visible' : 'hidden' }}>
+                <div className="paper-card h-full p-3 flex flex-col overflow-hidden">
+                  {teachEl}
+                  {session?.error && (
+                    <div className="mt-3 text-xs text-cinnabar bg-cinnabar/5 border border-cinnabar/30 rounded-lg px-3 py-2">{session.error}</div>
+                  )}
+                </div>
+              </div>
+              <div className="absolute inset-0 p-2" style={{ visibility: mTab === 'code' ? 'visible' : 'hidden' }}>
+                {codeEl}
+              </div>
+            </div>
+          </>
+        )}
+
+        {/* 目录抽屉：从右滑入，直接展开当前书的技能树 */}
+        {drawerOpen && packId && (
+          <div className="fixed inset-0 z-50 flex">
+            <div className="drawer-backdrop absolute inset-0" onClick={() => setDrawerOpen(false)} />
+            <div className="drawer-panel relative ml-auto h-full w-[88vw] max-w-[360px] p-4 flex flex-col">
+              <div className="shrink-0 flex items-center gap-2 pb-3 mb-3 border-b border-line/60">
+                <span className="font-display text-base font-bold flex-1">目录</span>
+                <button type="button" onClick={() => setDrawerOpen(false)} className="btn-ghost w-9 h-9 grid place-items-center rounded-full" aria-label="关闭目录">✕</button>
+              </div>
+              <div className="flex-1 min-h-0">
+                <PackPanel key={`drawer-${packId}`} autoOpenId={packId} {...panelProps} />
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  }
 
   return (
     <div className="flex h-full gap-4 p-4">

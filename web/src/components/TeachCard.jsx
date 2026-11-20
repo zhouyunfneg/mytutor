@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { api } from '../api.js';
 import Rich from './Rich.jsx';
 import Diagram from './Diagram.jsx';
+import { useIsMobile } from '../useIsMobile.js';
 
 const LOGO = `${import.meta.env.BASE_URL}logo.svg`;
 
@@ -45,6 +46,7 @@ export default function TeachCard({ packId, session, refresh, code, onLoadStarte
   const [picked, setPicked] = useState(null);
   const qaEndRef = useRef(null);
   const taRef = useRef(null);
+  const isMobile = useIsMobile();
 
   const qaCount = session?.qa?.length || 0;
   // 新问答出现时滚到视野底部（仅在问答页签激活时）
@@ -178,7 +180,7 @@ export default function TeachCard({ packId, session, refresh, code, onLoadStarte
     );
   } else if (inTask && ex) {
     actions = (
-      <div className="flex items-center gap-3 flex-wrap">
+      <div className={`flex items-center ${isMobile ? 'gap-2' : 'gap-3'} flex-wrap`}>
         <button
           className="btn-seal px-6 py-2.5 text-sm"
           disabled={busy || asking || changing || (isChoice && picked === null)}
@@ -198,7 +200,7 @@ export default function TeachCard({ packId, session, refresh, code, onLoadStarte
           </button>
         ) : null}
         <span className="text-xs text-ink-faint">
-          {isChoice ? '选一个答案再提交；提示只指方向' : '在右侧代码区写，写完提交'}
+          {isChoice ? '选一个答案再提交；提示只指方向' : isMobile ? '切到「代码区」写，写完提交' : '在右侧代码区写，写完提交'}
         </span>
       </div>
     );
@@ -267,172 +269,197 @@ export default function TeachCard({ packId, session, refresh, code, onLoadStarte
     </div>
   );
 
-  return (
-    <div className="flex-1 min-h-0 flex flex-col">
-      {/* 卡头：面包屑 → 知识点名 → 一句目标；步骤点独立一行 */}
-      <div className="shrink-0 pb-4 border-b border-line/60">
-        {p && (
-          <div className="text-xs text-ink-faint mb-1.5 truncate">
-            {p.module_title} <span className="mx-1 text-line">›</span> {p.section_title}
-          </div>
-        )}
-        <h2 className="font-display text-xl font-bold leading-snug">
-          {p ? p.title : '学习'}
-        </h2>
-        {p?.goal && (
-          <p className="mt-1.5 text-[13px] leading-6 text-ink-soft">
-            <span className="inline-block align-middle mr-2 px-1.5 py-px rounded text-[10px] tracking-widest bg-pine/10 text-pine-deep border border-pine/25">目标</span>
-            {p.goal}
-          </p>
-        )}
-        {!done && idx !== undefined && (
-          <div className="flex items-center gap-2 mt-3.5">
-            {STEPS.map((label, i) => (
-              <div key={label} className="flex items-center gap-2">
-                <div className="flex items-center gap-1.5">
-                  <div className={`step-dot ${i === idx ? 'active' : i < idx ? 'done' : ''}`} />
-                  <span className={`text-[11px] whitespace-nowrap ${i === idx ? 'text-ink font-medium' : 'text-ink-faint'}`}>{label}</span>
-                </div>
-                {i < STEPS.length - 1 && <div className="w-6 h-px bg-line" />}
+  // 卡头：面包屑 → 知识点名 → 一句目标 → 步骤点。桌面钉在顶部；手机随正文一起滚动，让阅读区拿到几乎整屏高度
+  const head = (
+    <div className={`${isMobile ? 'pb-2.5' : 'shrink-0 pb-4'} border-b border-line/60`}>
+      {p && (
+        <div className={`text-xs text-ink-faint ${isMobile ? 'mb-1' : 'mb-1.5'} truncate`}>
+          {p.module_title} <span className="mx-1 text-line">›</span> {p.section_title}
+        </div>
+      )}
+      <h2 className={`font-display ${isMobile ? 'text-lg' : 'text-xl'} font-bold leading-snug`}>
+        {p ? p.title : '学习'}
+      </h2>
+      {p?.goal && (
+        <p className={`${isMobile ? 'mt-1 text-[12px] leading-5' : 'mt-1.5 text-[13px] leading-6'} text-ink-soft`}>
+          <span className="inline-block align-middle mr-2 px-1.5 py-px rounded text-[10px] tracking-widest bg-pine/10 text-pine-deep border border-pine/25">目标</span>
+          {p.goal}
+        </p>
+      )}
+      {!done && idx !== undefined && (
+        <div className={`flex items-center gap-2 ${isMobile ? 'mt-2' : 'mt-3.5'}`}>
+          {STEPS.map((label, i) => (
+            <div key={label} className="flex items-center gap-2">
+              <div className="flex items-center gap-1.5">
+                <div className={`step-dot ${i === idx ? 'active' : i < idx ? 'done' : ''}`} />
+                <span className={`text-[11px] whitespace-nowrap ${i === idx ? 'text-ink font-medium' : 'text-ink-faint'}`}>{label}</span>
               </div>
-            ))}
-          </div>
-        )}
-      </div>
+              {i < STEPS.length - 1 && <div className="w-6 h-px bg-line" />}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
 
-      {/* 正文页签：内容（讲解/题目）与问老师分开，互不混排；有问答才出现 */}
-      {qaVisible && (
-        <div className="shrink-0 flex items-center gap-6 px-1 pt-3">
-          <button
-            type="button"
-            onClick={() => setBodyTab('content')}
-            className={`pb-2 text-[13px] border-b-2 transition-colors ${tab === 'content' ? 'border-cinnabar text-ink font-medium' : 'border-transparent text-ink-faint hover:text-ink-soft'}`}
-          >
-            {s.step === 'explain' ? '讲解' : '题目'}
-          </button>
-          <button
-            type="button"
-            onClick={() => setBodyTab('qa')}
-            className={`pb-2 text-[13px] border-b-2 inline-flex items-center gap-1.5 transition-colors ${tab === 'qa' ? 'border-cinnabar text-ink font-medium' : 'border-transparent text-ink-faint hover:text-ink-soft'}`}
-          >
-            问老师
-            {qaCount > 0 && (
-              <span className="px-1.5 py-px rounded-full bg-paper-deep border border-line/70 text-[10px] text-ink-soft">{qaCount}</span>
-            )}
-          </button>
+  // 正文页签：内容（讲解/题目）与问老师分开，互不混排；有问答才出现。两种布局都钉在滚动区上方
+  const bodyTabs = qaVisible ? (
+    <div className={`shrink-0 flex items-center gap-6 px-1 ${isMobile ? 'pt-2' : 'pt-3'}`}>
+      <button
+        type="button"
+        onClick={() => setBodyTab('content')}
+        className={`pb-2 text-[13px] border-b-2 transition-colors ${tab === 'content' ? 'border-cinnabar text-ink font-medium' : 'border-transparent text-ink-faint hover:text-ink-soft'}`}
+      >
+        {s.step === 'explain' ? '讲解' : '题目'}
+      </button>
+      <button
+        type="button"
+        onClick={() => setBodyTab('qa')}
+        className={`pb-2 text-[13px] border-b-2 inline-flex items-center gap-1.5 transition-colors ${tab === 'qa' ? 'border-cinnabar text-ink font-medium' : 'border-transparent text-ink-faint hover:text-ink-soft'}`}
+      >
+        问老师
+        {qaCount > 0 && (
+          <span className="px-1.5 py-px rounded-full bg-paper-deep border border-line/70 text-[10px] text-ink-soft">{qaCount}</span>
+        )}
+      </button>
+    </div>
+  ) : null;
+
+  const content = (
+    <>
+      {err && (
+        <div className="text-xs text-cinnabar bg-cinnabar/5 border border-cinnabar/30 rounded-lg px-3 py-2">
+          {err}
         </div>
       )}
 
-      {/* 正文：限宽 680，内容短时垂直居中，长内容自然滚动 */}
-      <div className="flex-1 min-h-0 overflow-y-auto py-6 px-1 flex">
-        <div className="m-auto w-full max-w-[680px] flex flex-col gap-6">
-          {err && (
-            <div className="text-xs text-cinnabar bg-cinnabar/5 border border-cinnabar/30 rounded-lg px-3 py-2">
-              {err}
+      {tab === 'qa' && qaPanel}
+
+      {tab === 'content' && s.step === 'explain' && (
+        <>
+          <Rich text={s.explain} onLoadCode={onLoadStarter} />
+          <Diagram spec={s.diagram} />
+        </>
+      )}
+
+      {tab === 'content' && inTask && ex && (
+        <>
+          <div className="bg-paper-deep/60 border border-line rounded-xl px-5 py-4">
+            <div className="text-[11px] tracking-widest text-ink-faint mb-2">
+              {s.step.startsWith('consolidate') ? '巩固 · 变式题' : isChoice ? '概念 · 选择 / 判断' : '动手小题'}
+              {s.attempts > 0 && ` · 已提交 ${s.attempts} 次`}
+            </div>
+            <p className="text-base leading-8 text-ink">{ex.task}</p>
+          </div>
+          {isChoice && (
+            <div className="flex flex-col gap-2">
+              {ex.judge.options.map((opt, i) => {
+                const sel = picked === i;
+                const wasPick = isCorrecting && picked === null && s.last_choice === i;
+                return (
+                  <button
+                    key={i}
+                    type="button"
+                    onClick={() => setPicked(i)}
+                    className={`text-left flex items-start gap-3 px-4 py-3 rounded-xl border transition-colors ${
+                      sel ? 'border-ink/60 bg-paper-deep/80'
+                        : wasPick ? 'border-cinnabar/50 bg-cinnabar/5'
+                          : 'border-line bg-card/60 hover:bg-paper-deep/50'
+                    }`}
+                  >
+                    <span className={`shrink-0 w-6 h-6 rounded-full grid place-items-center text-[11px] font-mono font-bold ${
+                      sel ? 'bg-ink text-paper'
+                        : wasPick ? 'bg-cinnabar/15 text-cinnabar-deep'
+                          : 'bg-paper-deep text-ink-soft border border-line/70'
+                    }`}>{String.fromCharCode(65 + i)}</span>
+                    <span className="flex-1 text-[14px] leading-7 text-ink">{opt}</span>
+                    {wasPick && <span className="shrink-0 text-[10px] text-cinnabar-deep mt-1">上次选的</span>}
+                  </button>
+                );
+              })}
             </div>
           )}
-
-          {tab === 'qa' && qaPanel}
-
-          {tab === 'content' && s.step === 'explain' && (
-            <>
-              <Rich text={s.explain} onLoadCode={onLoadStarter} />
-              <Diagram spec={s.diagram} />
-            </>
+          {s.task_hint && (
+            <div className="border-l-2 border-pine bg-pine/5 px-5 py-4 rounded-r-xl">
+              <div className="text-[11px] tracking-widest text-pine-deep mb-1.5">题目提示 · 帮你读题</div>
+              <p className="text-[15px] leading-8 text-ink-soft whitespace-pre-wrap">{s.task_hint}</p>
+            </div>
           )}
-
-          {tab === 'content' && inTask && ex && (
-            <>
-              <div className="bg-paper-deep/60 border border-line rounded-xl px-5 py-4">
-                <div className="text-[11px] tracking-widest text-ink-faint mb-2">
-                  {s.step.startsWith('consolidate') ? '巩固 · 变式题' : isChoice ? '概念 · 选择 / 判断' : '动手小题'}
-                  {s.attempts > 0 && ` · 已提交 ${s.attempts} 次`}
-                </div>
-                <p className="text-base leading-8 text-ink">{ex.task}</p>
+          {isCorrecting && s.hint && (
+            <div className="border-l-2 border-cinnabar bg-cinnabar/5 px-5 py-4 rounded-r-xl">
+              <div className="text-[11px] tracking-widest text-cinnabar mb-1.5">提示 · 不给答案</div>
+              <p className="text-[15px] leading-8 text-ink-soft">{s.hint}</p>
+            </div>
+          )}
+          {s.last_output && isCorrecting && (
+            <div className="rounded-xl overflow-hidden border border-line/80">
+              <div className="px-4 py-2 bg-paper-deep border-b border-line/70 text-[11px] tracking-widest text-ink-faint">
+                运行结果
               </div>
-              {isChoice && (
-                <div className="flex flex-col gap-2">
-                  {ex.judge.options.map((opt, i) => {
-                    const sel = picked === i;
-                    const wasPick = isCorrecting && picked === null && s.last_choice === i;
-                    return (
-                      <button
-                        key={i}
-                        type="button"
-                        onClick={() => setPicked(i)}
-                        className={`text-left flex items-start gap-3 px-4 py-3 rounded-xl border transition-colors ${
-                          sel ? 'border-ink/60 bg-paper-deep/80'
-                            : wasPick ? 'border-cinnabar/50 bg-cinnabar/5'
-                              : 'border-line bg-card/60 hover:bg-paper-deep/50'
-                        }`}
-                      >
-                        <span className={`shrink-0 w-6 h-6 rounded-full grid place-items-center text-[11px] font-mono font-bold ${
-                          sel ? 'bg-ink text-paper'
-                            : wasPick ? 'bg-cinnabar/15 text-cinnabar-deep'
-                              : 'bg-paper-deep text-ink-soft border border-line/70'
-                        }`}>{String.fromCharCode(65 + i)}</span>
-                        <span className="flex-1 text-[14px] leading-7 text-ink">{opt}</span>
-                        {wasPick && <span className="shrink-0 text-[10px] text-cinnabar-deep mt-1">上次选的</span>}
-                      </button>
-                    );
-                  })}
-                </div>
-              )}
-              {s.task_hint && (
-                <div className="border-l-2 border-pine bg-pine/5 px-5 py-4 rounded-r-xl">
-                  <div className="text-[11px] tracking-widest text-pine-deep mb-1.5">题目提示 · 帮你读题</div>
-                  <p className="text-[15px] leading-8 text-ink-soft whitespace-pre-wrap">{s.task_hint}</p>
-                </div>
-              )}
-              {isCorrecting && s.hint && (
-                <div className="border-l-2 border-cinnabar bg-cinnabar/5 px-5 py-4 rounded-r-xl">
-                  <div className="text-[11px] tracking-widest text-cinnabar mb-1.5">提示 · 不给答案</div>
-                  <p className="text-[15px] leading-8 text-ink-soft">{s.hint}</p>
-                </div>
-              )}
-              {s.last_output && isCorrecting && (
-                <div className="rounded-xl overflow-hidden border border-line/80">
-                  <div className="px-4 py-2 bg-paper-deep border-b border-line/70 text-[11px] tracking-widest text-ink-faint">
-                    运行结果
-                  </div>
-                  <pre className="bg-night text-paper/80 px-4 py-3 text-xs leading-5 font-mono overflow-x-auto whitespace-pre-wrap max-h-40 overflow-y-auto">
-                    {s.last_output}
-                  </pre>
-                </div>
-              )}
-            </>
-          )}
-
-          {s.step === 'point_done' && (
-            <div className="text-center py-8">
-              <div className="seal w-16 h-16 mx-auto flex items-center justify-center text-3xl font-bold mb-5">过</div>
-              <h3 className="font-display text-xl font-bold mb-2">这个点拿下了</h3>
-              <p className="text-sm text-ink-soft">原题 + 变式题都判对，进度已记录。</p>
+              <pre className="bg-night text-paper/80 px-4 py-3 text-xs leading-5 font-mono overflow-x-auto whitespace-pre-wrap max-h-40 overflow-y-auto">
+                {s.last_output}
+              </pre>
             </div>
           )}
+        </>
+      )}
 
-          {(s.step === 'section_summary' || s.step === 'module_summary') && (
-            <>
-              <div className="text-[11px] tracking-widest text-pine-deep">
-                {s.step === 'section_summary' ? '小节 · 小总结' : '模块 · 大总结'}
-              </div>
-              <Rich text={s.summary} />
-            </>
-          )}
-
-          {s.step === 'pack_done' && (
-            <div className="text-center py-8">
-              <div className="seal w-16 h-16 mx-auto flex items-center justify-center text-3xl font-bold mb-5">成</div>
-              <h3 className="font-display text-xl font-bold mb-2">本语言包技能树走完</h3>
-              <p className="text-sm text-ink-soft">去左栏换一门语言，或等技能树扩充后再来。</p>
-            </div>
-          )}
+      {s.step === 'point_done' && (
+        <div className="text-center py-8">
+          <div className="seal w-16 h-16 mx-auto flex items-center justify-center text-3xl font-bold mb-5">过</div>
+          <h3 className="font-display text-xl font-bold mb-2">这个点拿下了</h3>
+          <p className="text-sm text-ink-soft">原题 + 变式题都判对，进度已记录。</p>
         </div>
-      </div>
+      )}
+
+      {(s.step === 'section_summary' || s.step === 'module_summary') && (
+        <>
+          <div className="text-[11px] tracking-widest text-pine-deep">
+            {s.step === 'section_summary' ? '小节 · 小总结' : '模块 · 大总结'}
+          </div>
+          <Rich text={s.summary} />
+        </>
+      )}
+
+      {s.step === 'pack_done' && (
+        <div className="text-center py-8">
+          <div className="seal w-16 h-16 mx-auto flex items-center justify-center text-3xl font-bold mb-5">成</div>
+          <h3 className="font-display text-xl font-bold mb-2">本语言包技能树走完</h3>
+          <p className="text-sm text-ink-soft">{isMobile ? '回书架换一门语言，或等技能树扩充后再来。' : '去左栏换一门语言，或等技能树扩充后再来。'}</p>
+        </div>
+      )}
+    </>
+  );
+
+  return (
+    <div className="flex-1 min-h-0 flex flex-col">
+      {isMobile ? (
+        <>
+          {bodyTabs}
+          {/* 手机：卡头随正文一起滚动，滚动区拿到几乎整屏高度；提问框与主动作仍钉在底部 */}
+          <div className="flex-1 min-h-0 overflow-y-auto px-1 py-3">
+            {head}
+            <div className="w-full max-w-[680px] mx-auto flex flex-col gap-4 pt-3">
+              {content}
+            </div>
+          </div>
+        </>
+      ) : (
+        <>
+          {head}
+          {bodyTabs}
+          {/* 桌面：限宽 680，内容短时垂直居中，长内容自然滚动（渲染逐字未动） */}
+          <div className="flex-1 min-h-0 overflow-y-auto py-6 px-1 flex">
+            <div className="m-auto w-full max-w-[680px] flex flex-col gap-6">
+              {content}
+            </div>
+          </div>
+        </>
+      )}
 
       {/* 讲解 + 做题诸阶段：提问框，像老师一样互动；问完再点下方主动作 */}
       {askable && (
-        <div className="shrink-0 border-t border-line/60 pt-3">
+        <div className={`shrink-0 border-t border-line/60 ${isMobile ? 'pt-2' : 'pt-3'}`}>
           {askErr && (
             <div className="text-xs text-cinnabar bg-cinnabar/5 border border-cinnabar/30 rounded-lg px-3 py-2 mb-2">
               {askErr}
@@ -462,7 +489,7 @@ export default function TeachCard({ packId, session, refresh, code, onLoadStarte
 
       {/* 底栏：主动作始终可见 */}
       {actions && (
-        <div className={`shrink-0 flex items-center ${askable ? 'pt-3' : 'border-t border-line/60 pt-4'}`}>
+        <div className={`shrink-0 flex items-center ${askable ? (isMobile ? 'pt-2' : 'pt-3') : `border-t border-line/60 ${isMobile ? 'pt-3' : 'pt-4'}`}`}>
           {actions}
           {askable && <span className="ml-3 text-[11px] text-ink-faint">{s.step === 'explain' ? '问完再出题' : '问完再提交'}</span>}
         </div>

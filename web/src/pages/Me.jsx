@@ -260,7 +260,7 @@ export default function Me() {
 
   const s = settings;
   return (
-    <div className="h-full overflow-auto p-6">
+    <div className="h-full overflow-auto p-4 md:p-6">
       <div className="max-w-3xl mx-auto">
         <h1 className="font-display text-2xl font-bold mb-1 fade-up">我的 · 设置</h1>
         <p className="text-sm text-ink-faint mb-6 fade-up">密钥只存在服务器本地，不会发给模型，也不会进代码仓库。</p>
@@ -335,7 +335,7 @@ export default function Me() {
       </div>
 
       {toast && (
-        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 btn-ink px-5 py-2 text-sm shadow-lg fade-up">
+        <div className="fixed bottom-20 md:bottom-6 left-1/2 -translate-x-1/2 btn-ink px-5 py-2 text-sm shadow-lg fade-up">
           {toast}
         </div>
       )}
