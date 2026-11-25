@@ -7,6 +7,7 @@ import htmlWorker from 'monaco-editor/esm/vs/language/html/html.worker?worker';
 import cssWorker from 'monaco-editor/esm/vs/language/css/css.worker?worker';
 import { api } from '../api.js';
 import { installEmmet } from '../emmet.js';
+import { installEmbeddedIntellisense } from '../embedded-intellisense.js';
 
 // 本地打包 Monaco，不走 CDN
 self.MonacoEnvironment = {
@@ -66,6 +67,49 @@ monaco.editor.defineTheme('mytutor-paper', {
     'editorSuggestWidget.background': '#fbf9f3',
     'editorSuggestWidget.border': '#d6cfc2',
     'editorSuggestWidget.selectedBackground': '#e8e4d8',
+    // 补全列表图标/命中高亮收进全站色族（monaco 默认 symbolIcon 是鲜艳蓝紫，弃用）：
+    // 方法/关键字/数字=陶土红，属性/变量=墨色，类/值/字符串=灰绿，其余=淡墨
+    'editorSuggestWidget.highlightForeground': '#9d5f50',
+    // 选中行另走一组键（CDP 匹配规则实测：focused 行图标吃 selectedIconForeground、
+    // 命中高亮吃 focusHighlightForeground）；不设就回落 monaco 默认白图标/蓝高亮
+    'editorSuggestWidget.selectedIconForeground': '#9d5f50',
+    'editorSuggestWidget.focusHighlightForeground': '#9d5f50',
+    'editorSuggestWidget.selectedForeground': '#262219',
+    'symbolIcon.methodForeground': '#9d5f50',
+    'symbolIcon.functionForeground': '#9d5f50',
+    'symbolIcon.constructorForeground': '#9d5f50',
+    'symbolIcon.keywordForeground': '#9d5f50',
+    'symbolIcon.eventForeground': '#9d5f50',
+    'symbolIcon.unitForeground': '#9d5f50',
+    'symbolIcon.numberForeground': '#9d5f50',
+    'symbolIcon.booleanForeground': '#9d5f50',
+    'symbolIcon.propertyForeground': '#5c564e',
+    'symbolIcon.fieldForeground': '#5c564e',
+    'symbolIcon.variableForeground': '#5c564e',
+    'symbolIcon.objectForeground': '#5c564e',
+    'symbolIcon.arrayForeground': '#5c564e',
+    'symbolIcon.typeParameterForeground': '#5c564e',
+    'symbolIcon.classForeground': '#5c7a67',
+    'symbolIcon.interfaceForeground': '#5c7a67',
+    'symbolIcon.structForeground': '#5c7a67',
+    'symbolIcon.moduleForeground': '#5c7a67',
+    'symbolIcon.namespaceForeground': '#5c7a67',
+    // 实测映射（monaco 样式表 codicon-symbol-* 规则）：value/enum 吃 enumeratorForeground、
+    // enum-member 吃 enumeratorMemberForeground；设 valueForeground/enumForeground 无规则引用
+    'symbolIcon.enumeratorForeground': '#5c7a67',
+    'symbolIcon.enumeratorMemberForeground': '#5c7a67',
+    'symbolIcon.constantForeground': '#5c7a67',
+    'symbolIcon.colorForeground': '#5c7a67',
+    'symbolIcon.stringForeground': '#5c7a67',
+    'symbolIcon.textForeground': '#7d7568',
+    'symbolIcon.snippetForeground': '#7d7568',
+    'symbolIcon.referenceForeground': '#7d7568',
+    'symbolIcon.operatorForeground': '#7d7568',
+    'symbolIcon.nullForeground': '#7d7568',
+    'symbolIcon.fileForeground': '#7d7568',
+    'symbolIcon.folderForeground': '#7d7568',
+    'symbolIcon.keyForeground': '#7d7568',
+    'symbolIcon.packageForeground': '#7d7568',
     'editorBracketHighlight.foreground1': '#7d7568',
     'editorBracketHighlight.foreground2': '#9d5f50',
     'editorBracketHighlight.foreground3': '#5c7a67',
@@ -120,6 +164,45 @@ monaco.editor.defineTheme('mytutor-night', {
     'editorSuggestWidget.background': '#241e18',
     'editorSuggestWidget.border': '#3a3128',
     'editorSuggestWidget.selectedBackground': '#352c24',
+    // 夜黑同族提亮档：陶土红/灰绿/暖墨，不用 vs-dark 默认蓝紫图标
+    'editorSuggestWidget.highlightForeground': '#d29a86',
+    // 选中行同族提亮档（键名见纸白注释）
+    'editorSuggestWidget.selectedIconForeground': '#d29a86',
+    'editorSuggestWidget.focusHighlightForeground': '#d29a86',
+    'editorSuggestWidget.selectedForeground': '#e8e2d6',
+    'symbolIcon.methodForeground': '#d29a86',
+    'symbolIcon.functionForeground': '#d29a86',
+    'symbolIcon.constructorForeground': '#d29a86',
+    'symbolIcon.keywordForeground': '#d29a86',
+    'symbolIcon.eventForeground': '#d29a86',
+    'symbolIcon.unitForeground': '#d29a86',
+    'symbolIcon.numberForeground': '#d29a86',
+    'symbolIcon.booleanForeground': '#d29a86',
+    'symbolIcon.propertyForeground': '#c9c2b4',
+    'symbolIcon.fieldForeground': '#c9c2b4',
+    'symbolIcon.variableForeground': '#c9c2b4',
+    'symbolIcon.objectForeground': '#c9c2b4',
+    'symbolIcon.arrayForeground': '#c9c2b4',
+    'symbolIcon.typeParameterForeground': '#c9c2b4',
+    'symbolIcon.classForeground': '#9dbba6',
+    'symbolIcon.interfaceForeground': '#9dbba6',
+    'symbolIcon.structForeground': '#9dbba6',
+    'symbolIcon.moduleForeground': '#9dbba6',
+    'symbolIcon.namespaceForeground': '#9dbba6',
+    'symbolIcon.enumeratorForeground': '#9dbba6',
+    'symbolIcon.enumeratorMemberForeground': '#9dbba6',
+    'symbolIcon.constantForeground': '#9dbba6',
+    'symbolIcon.colorForeground': '#9dbba6',
+    'symbolIcon.stringForeground': '#9dbba6',
+    'symbolIcon.textForeground': '#9a9287',
+    'symbolIcon.snippetForeground': '#9a9287',
+    'symbolIcon.referenceForeground': '#9a9287',
+    'symbolIcon.operatorForeground': '#9a9287',
+    'symbolIcon.nullForeground': '#9a9287',
+    'symbolIcon.fileForeground': '#9a9287',
+    'symbolIcon.folderForeground': '#9a9287',
+    'symbolIcon.keyForeground': '#9a9287',
+    'symbolIcon.packageForeground': '#9a9287',
     'editorBracketHighlight.foreground1': '#9a9287',
     'editorBracketHighlight.foreground2': '#d29a86',
     'editorBracketHighlight.foreground3': '#9dbba6',
@@ -174,9 +257,11 @@ export default function CodePanel({ lockLang = null, onCodeChange, inject = null
     if (lockLang) setLang(lockLang);
   }, [lockLang]);
 
-  // Emmet 只服务 HTML 页签：首次进入才懒加载引擎并注册（补全预览 + Tab 展开）
+  // HTML 页签专属：Emmet 缩写展开 + <style>/<script> 内真 CSS/JS 补齐，首次进入才注册
   useEffect(() => {
-    if (lang === 'html') installEmmet(monaco);
+    if (lang !== 'html') return;
+    installEmmet(monaco);
+    installEmbeddedIntellisense(monaco);
   }, [lang]);
 
   // 外部注入代码（载入起始代码）
