@@ -1,7 +1,7 @@
 """阶段 3：练习题库 + 错题本 + 间隔复习。
 
 复用教学循环的判题底座与防灌输锁：判题只给提示不给答案；题只考单点。
-- 题库：按点缓存 LLM 变式题（bank），"换一题"生成新题入缓存（每点上限 6 道）。
+- 题库：按点缓存 LLM 变式题（bank）；普通取题只复用缓存，显式「换一题」才生成新题（每点上限 6 道）。
 - 错题本：判错入本（题面/当时代码/提示/一句错因），重练做对自动消除，可手动移除。
 - 间隔复习：简化 SM-2，做对间隔 1→3→7→15→30 天封顶，做错归 1 天；
   教学循环学完一个点自动登记（teach.advance 里 lazy import 调用 seed）。
@@ -217,17 +217,19 @@ async def _generate(pack_id: str, point: dict, avoid: list[str]) -> dict:
             "task": pr["task"], "starter": pr.get("starter", ""), "judge": pr["judge"]}
 
 
-async def _pick_problem(st: dict, pack_id: str, point: dict) -> dict:
+async def _pick_problem(st: dict, pack_id: str, point: dict, force_new: bool = False) -> dict:
     key = _k(pack_id, point["id"])
     bank = st["bank"].setdefault(key, [])
     last = st["last"].get(key)
-    fresh = [x for x in bank if x["id"] != last]
-    if fresh:
-        pr = fresh[0]
-    else:
+    # 普通进入/下一题只复用题库；只有显式换题或首次无题才允许调用 AI。
+    if force_new or not bank:
         pr = await _generate(pack_id, point, [x["task"] for x in bank])
         bank.append(pr)
         st["bank"][key] = bank[-BANK_CAP:]
+    else:
+        fresh = [x for x in bank if x["id"] != last]
+        # 有两题就轮换；只有一题时原样复用，不再为了“凑另一题”阻塞用户。
+        pr = fresh[0] if fresh else bank[-1]
     st["last"][key] = pr["id"]
     return pr
 
@@ -295,7 +297,7 @@ def wrong_remove(wrong_id: str) -> bool:
 
 # ── 动作 ──────────────────────────────────────────────────────────────
 async def next_problem(mode: str, pack_id: str | None = None, point_id: str | None = None,
-                       wrong_id: str | None = None) -> dict:
+                       wrong_id: str | None = None, force_new: bool = False) -> dict:
     st = _load()
     if mode == "wrong":
         w = next((x for x in st["wrong"] if x["id"] == wrong_id), None) if wrong_id else (st["wrong"] or [None])[0]
@@ -325,7 +327,7 @@ async def next_problem(mode: str, pack_id: str | None = None, point_id: str | No
     point = teach.find_point(tree, point_id)
     if not point:
         raise ValueError(f"技能树里没有点 {point_id}")
-    pr = await _pick_problem(st, pack_id, point)
+    pr = await _pick_problem(st, pack_id, point, force_new=force_new)
     _save(st)
     e = st["sched"].get(_k(pack_id, point_id))
     return {"mode": mode, "problem": _public_pr(pr), "point": point, "pack_id": pack_id,

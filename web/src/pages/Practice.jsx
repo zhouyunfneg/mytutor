@@ -100,7 +100,7 @@ export default function Practice() {
     setBusy('next');
     setErr(null);
     try {
-      const r = await api.post('/api/practice/next', { mode: m, ...opts });
+      const r = await api.post('/api/practice/next', { mode: m, force_new: false, ...opts });
       if (r && r.ok === false) setErr(r.error);
       else openProblem(r);
     } catch (e) {
@@ -366,7 +366,7 @@ export default function Practice() {
           <button
             className="btn-ghost text-xs px-3 py-1.5"
             disabled={busy === 'next'}
-            onClick={() => next(cur.mode, { pack_id: cur.pack_id, point_id: cur.point.id })}
+            onClick={() => next('point', { pack_id: cur.pack_id, point_id: cur.point.id, force_new: true })}
           >
             {busy === 'next' ? '出题中…' : '换一题'}
           </button>

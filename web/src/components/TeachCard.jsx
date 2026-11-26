@@ -29,7 +29,8 @@ const ArrowRight = () => (
   </svg>
 );
 
-export default function TeachCard({ packId, session, refresh, code, onLoadStarter }) {
+export default function TeachCard({ packId, session, refresh, code, onLoadStarter,
+  review = false, reviewBusy = false, onExitReview, onRelearn }) {
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState(null);
   // 讲解阶段「问老师」：独立 asking，不占用出题按钮的 busy
@@ -158,21 +159,33 @@ export default function TeachCard({ packId, session, refresh, code, onLoadStarte
 
   const s = session;
   const p = s.point;
-  const idx = STEP_IDX[s.step];
-  const done = ['point_done', 'section_summary', 'module_summary', 'pack_done'].includes(s.step);
-  const ex = s.step.startsWith('consolidate') ? s.consolidate : s.exercise;
+  const idx = review ? undefined : STEP_IDX[s.step];
+  const done = review || ['point_done', 'section_summary', 'module_summary', 'pack_done'].includes(s.step);
+  const ex = review ? null : (s.step.startsWith('consolidate') ? s.consolidate : s.exercise);
   const isChoice = ex?.judge?.mode === 'choice';
   const isCorrecting = s.step === 'correcting' || s.step === 'consolidate_correcting';
-  const inTask = ['exercise', 'consolidate', 'correcting', 'consolidate_correcting'].includes(s.step);
-  // 讲解 + 做题诸阶段都可「问老师」，随时遇到疑问随时问
-  const askable = s.step === 'explain' || inTask;
+  const inTask = !review && ['exercise', 'consolidate', 'correcting', 'consolidate_correcting'].includes(s.step);
+  // 复习模式只读：不提问、不判题、不推进；讲解 + 做题阶段才可问老师。
+  const askable = !review && (s.step === 'explain' || inTask);
   // 有问答（或正在提问）才出现页签；否则正文直接渲染内容，不加空页签噪音
   const qaVisible = askable && (qaCount > 0 || !!pendingQ);
   const tab = qaVisible ? bodyTab : 'content';
 
   // 底栏动作：每个步骤一个主动作，固定在卡片底部，不随正文滚动
   let actions = null;
-  if (s.step === 'explain') {
+  if (review) {
+    actions = (
+      <div className={`flex items-center ${isMobile ? 'gap-2' : 'gap-3'} flex-wrap`}>
+        <button className="btn-seal px-5 py-2.5 text-sm" onClick={onExitReview}>
+          返回继续学习
+        </button>
+        <button className="btn-ghost px-4 py-2 text-xs" onClick={onRelearn}>
+          重新学这个点
+        </button>
+        <span className="text-xs text-ink-faint">只读复习 · 不调用 AI</span>
+      </div>
+    );
+  } else if (s.step === 'explain') {
     actions = (
       <button className="btn-seal px-6 py-2.5 text-sm inline-flex items-center gap-2" disabled={busy || asking} onClick={() => call('step')}>
         {busy ? 'AI 出题中…' : <>看懂了，出题 <ArrowRight /></>}
@@ -280,6 +293,12 @@ export default function TeachCard({ packId, session, refresh, code, onLoadStarte
       <h2 className={`font-display ${isMobile ? 'text-lg' : 'text-xl'} font-bold leading-snug`}>
         {p ? p.title : '学习'}
       </h2>
+      {review && (
+        <div className={`${isMobile ? 'mt-1' : 'mt-1.5'} flex items-center gap-2 text-[11px] text-pine-deep`}>
+          <span className="px-1.5 py-px rounded bg-pine/10 border border-pine/25">已学完</span>
+          <span>{reviewBusy ? '正在打开…' : '只读复习 · 当前学习位置已保留'}</span>
+        </div>
+      )}
       {p?.goal && (
         <p className={`${isMobile ? 'mt-1 text-[12px] leading-5' : 'mt-1.5 text-[13px] leading-6'} text-ink-soft`}>
           <span className="inline-block align-middle mr-2 px-1.5 py-px rounded text-[10px] tracking-widest bg-pine/10 text-pine-deep border border-pine/25">目标</span>
@@ -325,6 +344,11 @@ export default function TeachCard({ packId, session, refresh, code, onLoadStarte
     </div>
   ) : null;
 
+  const reviewExercises = review ? [
+    { label: '动手小题', ex: s.exercise },
+    { label: '巩固 · 变式题', ex: s.consolidate },
+  ].filter((x) => x.ex?.task) : [];
+
   const content = (
     <>
       {err && (
@@ -335,7 +359,54 @@ export default function TeachCard({ packId, session, refresh, code, onLoadStarte
 
       {tab === 'qa' && qaPanel}
 
-      {tab === 'content' && s.step === 'explain' && (
+      {tab === 'content' && review && (
+        <>
+          {s.error && (
+            <div className="text-xs text-cinnabar bg-cinnabar/5 border border-cinnabar/30 rounded-lg px-3 py-2">
+              {s.error}
+            </div>
+          )}
+          {s.source === 'note' && (
+            <div className="text-[11px] tracking-widest text-pine-deep">
+              旧记录 · 自动笔记摘要
+            </div>
+          )}
+          {s.explain ? (
+            <>
+              {s.source === 'archive' && (
+                <div className="text-[11px] tracking-widest text-pine-deep">完整讲解 · 完成时归档</div>
+              )}
+              <Rich text={s.explain} onLoadCode={onLoadStarter} />
+              <Diagram spec={s.diagram} />
+            </>
+          ) : !s.error ? (
+            <p className="text-sm leading-8 text-ink-soft">这个点已学完，但没有可展示的旧内容。</p>
+          ) : null}
+          {reviewExercises.map(({ label, ex: item }) => (
+            <div key={label} className="bg-paper-deep/60 border border-line rounded-xl px-5 py-4">
+              <div className="text-[11px] tracking-widest text-ink-faint mb-2">{label} · 只读</div>
+              <p className="text-base leading-8 text-ink">{item.task}</p>
+              {item.judge?.mode === 'choice' && (
+                <ul className="mt-3 flex flex-col gap-1.5 text-[14px] leading-7 text-ink-soft">
+                  {(item.judge.options || []).map((opt, i) => (
+                    <li key={i} className="flex gap-2">
+                      <span className="font-mono text-xs text-ink-faint">{String.fromCharCode(65 + i)}.</span>
+                      <span>{opt}</span>
+                    </li>
+                  ))}
+                </ul>
+              )}
+              {item.starter && (
+                <pre className="mt-3 bg-night text-paper/80 px-4 py-3 text-xs leading-5 font-mono overflow-x-auto whitespace-pre-wrap max-h-52 overflow-y-auto rounded-lg">
+                  {item.starter}
+                </pre>
+              )}
+            </div>
+          ))}
+        </>
+      )}
+
+      {tab === 'content' && !review && s.step === 'explain' && (
         <>
           <Rich text={s.explain} onLoadCode={onLoadStarter} />
           <Diagram spec={s.diagram} />
@@ -432,7 +503,7 @@ export default function TeachCard({ packId, session, refresh, code, onLoadStarte
   );
 
   return (
-    <div className="flex-1 min-h-0 flex flex-col">
+    <div data-testid="teach-card" className="flex-1 min-h-0 flex flex-col">
       {isMobile ? (
         <>
           {bodyTabs}

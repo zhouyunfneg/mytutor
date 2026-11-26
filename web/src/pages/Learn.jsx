@@ -42,6 +42,9 @@ const BookOpen = () => (
 export default function Learn({ homeTick = 0 }) {
   const [packId, setPackId] = useState(null);
   const [session, setSession] = useState(null);
+  // 复习是独立只读视图：绝不覆盖当前学习现场，返回时原步骤原样恢复。
+  const [review, setReview] = useState(null);
+  const [reviewBusy, setReviewBusy] = useState(false);
   const [mirror, setMirror] = useState({ lang: 'python', code: '' });
   const [inject, setInject] = useState(null);
   const [bookOpen, setBookOpen] = useState(false);
@@ -65,6 +68,8 @@ export default function Learn({ homeTick = 0 }) {
   const backToShelf = () => {
     setPackId(null);
     setSession(null);
+    setReview(null);
+    setReviewBusy(false);
     setBookOpen(false);
     setDrawerOpen(false);
     setMTab('teach');
@@ -81,6 +86,8 @@ export default function Learn({ homeTick = 0 }) {
     if (!homeTick) return;
     setPackId(null);
     setSession(null);
+    setReview(null);
+    setReviewBusy(false);
     setBookOpen(false);
     setShelfOpenId(null);
     setPackPanelKey((k) => k + 1);
@@ -145,21 +152,38 @@ export default function Learn({ homeTick = 0 }) {
     refresh();
   }, [refresh]);
 
-  // 左栏点技能树某个点 = 从该点开始学
-  const onSelectPack = async (pid, point) => {
+  // 左栏点技能树：✓ 默认只读复习；未完成点才调用 AI 重新备课。
+  const onSelectPack = async (pid, point, completed = false) => {
     openingRef.current = true;
     setPackId(pid);
-    setSession(null);
+    setReview(null);
+    setReviewBusy(completed);
+    if (!completed || pid !== packId) setSession(null);
     try {
-      const r = await api.post(`/api/teach/${pid}/start`, { point_id: point?.id });
-      if (r && r.ok === false) {
-        setSession({ step: 'none', error: r.error });
+      if (completed) {
+        // 跨包时只 GET 当前现场；同包复习完全不碰内存里的 session。
+        if (pid !== packId) {
+          const active = await api.get(`/api/teach/${pid}`);
+          setSession(active && active.step !== 'none' ? active : null);
+        }
+        const r = await api.get(`/api/teach/${pid}/review/${point.id}`);
+        setReview(r && r.ok === false
+          ? { step: 'review', point, source: 'empty', explain: '', error: r.error }
+          : r);
       } else {
-        setSession(r);
+        const r = await api.post(`/api/teach/${pid}/start`, { point_id: point?.id });
+        if (r && r.ok === false) {
+          setSession({ step: 'none', error: r.error });
+        } else {
+          setSession(r);
+        }
       }
     } catch (e) {
-      setSession({ step: 'none', error: String(e.message || e) });
+      const msg = String(e.message || e);
+      if (completed) setReview({ step: 'review', point, source: 'empty', explain: '', error: msg });
+      else setSession({ step: 'none', error: msg });
     } finally {
+      setReviewBusy(false);
       openingRef.current = false;
     }
   };
@@ -169,6 +193,8 @@ export default function Learn({ homeTick = 0 }) {
     openingRef.current = true;
     setPackId(pid);
     setSession(null);
+    setReview(null);
+    setReviewBusy(false);
     try {
       let r;
       if (restart) {
@@ -183,6 +209,13 @@ export default function Learn({ homeTick = 0 }) {
     } finally {
       openingRef.current = false;
     }
+  };
+
+  const exitReview = () => setReview(null);
+  const relearnPoint = () => {
+    if (!review?.point) return;
+    if (!window.confirm('重新学会替换当前学习位置；已完成内容会保留。继续吗？')) return;
+    onSelectPack(packId, review.point, false);
   };
 
   const lockLang = packId ? LOCK_LANG[packId] || null : null;
@@ -231,7 +264,11 @@ export default function Learn({ homeTick = 0 }) {
     const teachEl = (
       <TeachCard
         packId={packId}
-        session={session?.error ? { step: 'none' } : session}
+        session={review || (session?.error ? { step: 'none' } : session)}
+        review={!!review}
+        reviewBusy={reviewBusy}
+        onExitReview={exitReview}
+        onRelearn={relearnPoint}
         refresh={refresh}
         code={mirror.code}
         onLoadStarter={(starter) => setInject({ lang: lockLang || 'python', code: starter, n: Date.now() })}
@@ -241,7 +278,7 @@ export default function Learn({ homeTick = 0 }) {
       <CodePanel lockLang={lockLang} inject={inject} onCodeChange={(lang, code) => setMirror({ lang, code })} />
     );
     const panelProps = {
-      onSelectPack: (pid, point) => { setDrawerOpen(false); setMTab('teach'); onSelectPack(pid, point); },
+      onSelectPack: (pid, point, completed) => { setDrawerOpen(false); setMTab('teach'); onSelectPack(pid, point, completed); },
       onResume: (pid) => { setDrawerOpen(false); setMTab('teach'); openPack(pid); },
       onRestart: (pid) => { setDrawerOpen(false); setMTab('teach'); openPack(pid, { restart: true }); },
       onDetailChange: setBookOpen,
@@ -413,7 +450,11 @@ export default function Learn({ homeTick = 0 }) {
         {packId ? (
           <TeachCard
             packId={packId}
-            session={session?.error ? { step: 'none' } : session}
+            session={review || (session?.error ? { step: 'none' } : session)}
+            review={!!review}
+            reviewBusy={reviewBusy}
+            onExitReview={exitReview}
+            onRelearn={relearnPoint}
             refresh={refresh}
             code={mirror.code}
             onLoadStarter={(starter) => setInject({ lang: lockLang || 'python', code: starter, n: Date.now() })}

@@ -7,6 +7,7 @@ from __future__ import annotations
 import asyncio
 import json
 import re
+from datetime import datetime
 from typing import Any
 
 from . import curriculum, diagram, kb, llm, notes, packs, runner
@@ -29,7 +30,10 @@ def _path(pack_id: str):
 def load_session(pack_id: str) -> dict | None:
     f = _path(pack_id)
     if f.exists():
-        return json.loads(f.read_text(encoding="utf-8"))
+        s = json.loads(f.read_text(encoding="utf-8"))
+        # 旧会话没有完成点归档：只在内存补空壳，读复习接口不会因此改写学习现场。
+        s.setdefault("completed", {})
+        return s
     return None
 
 
@@ -660,6 +664,14 @@ async def submit(pack_id: str, code: str, choice: int | None = None) -> dict:
             s["step"] = "point_done"
             if s["point_id"] not in s["done_points"]:
                 s["done_points"].append(s["point_id"])
+            # 完成即冻结一份内容供日后复习；显式重学覆盖同一归档，历史完成点不丢。
+            s.setdefault("completed", {})[s["point_id"]] = {
+                "explain": s.get("explain"),
+                "diagram": s.get("diagram"),
+                "exercise": s.get("exercise"),
+                "consolidate": s.get("consolidate"),
+                "completed_at": datetime.now().astimezone().isoformat(timespec="seconds"),
+            }
         else:
             tree = packs.load_tree(pack_id)
             p = find_point(tree, s["point_id"])
@@ -806,9 +818,51 @@ def state(pack_id: str) -> dict | None:
         return None
     tree = packs.load_tree(pack_id)
     p = find_point(tree, s.get("point_id", "")) if tree else None
-    return {**s, "point": p,
+    # 归档里保留判题答案用于显式重学的判题接线，但不能随普通学习状态出口泄露。
+    public = {k: v for k, v in s.items() if k != "completed"}
+    return {**public, "point": p,
             "exercise": _public_exercise(s.get("exercise")),
             "consolidate": _public_exercise(s.get("consolidate"))}
+
+
+def review(pack_id: str, point_id: str) -> dict:
+    """只读取完成点内容：不调用 LLM、不保存会话、不改变当前学习步骤。"""
+    s = load_session(pack_id)
+    if not s:
+        raise ValueError("还没有学习记录")
+    if point_id not in s.get("done_points", []):
+        raise ValueError("这个点还没有学完")
+    tree = packs.load_tree(pack_id)
+    p = find_point(tree, point_id) if tree else None
+    if not p:
+        raise ValueError("知识点不存在")
+
+    archived = s.get("completed", {}).get(point_id)
+    if archived:
+        return {
+            "step": "review", "source": "archive", "point": p,
+            "explain": archived.get("explain") or "",
+            "diagram": archived.get("diagram"),
+            "exercise": _public_exercise(archived.get("exercise")),
+            "consolidate": _public_exercise(archived.get("consolidate")),
+            "completed_at": archived.get("completed_at"),
+        }
+
+    # 兼容旧进度：没有完整归档时读已有自动笔记，绝不为了复习重新生成。
+    note = next((n for n in notes.list_notes(pack_id, kind="auto")
+                 if n.get("sub") == "point" and n.get("scope") == point_id), None)
+    if note:
+        return {
+            "step": "review", "source": "note", "point": p,
+            "explain": note.get("content") or "", "diagram": None,
+            "exercise": None, "consolidate": None,
+            "completed_at": note.get("created_at"),
+        }
+    return {
+        "step": "review", "source": "empty", "point": p,
+        "explain": "这个点已学完，但旧记录没有保存完整讲解。可以点「重新学这个点」重新生成课程。",
+        "diagram": None, "exercise": None, "consolidate": None, "completed_at": None,
+    }
 
 
 def progress(pack_id: str) -> dict:

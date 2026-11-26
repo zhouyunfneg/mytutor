@@ -259,7 +259,7 @@ export default function PackPanel({ onSelectPack, onResume, onRestart, onDetailC
                                             : 'text-ink-faint hover:bg-paper-deep/60 hover:text-ink'
                                       }`}
                                       title={p.goal}
-                                      onClick={() => onSelectPack?.(detail.id, p)}
+                                      onClick={() => onSelectPack?.(detail.id, p, done)}
                                     >
                                       <span className={`shrink-0 ${done ? 'text-pine' : current ? 'text-cinnabar' : 'text-ink-faint/60'}`}>
                                         {done ? '✓' : current ? '●' : '○'}

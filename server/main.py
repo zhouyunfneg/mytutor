@@ -13,7 +13,7 @@ from pydantic import BaseModel
 
 from . import auth, config, kb, llm, notes, packs, practice, runner, teach
 
-app = FastAPI(title="MyTutor", version="0.8.0")
+app = FastAPI(title="MyTutor", version="0.8.1")
 
 app.add_middleware(
     CORSMiddleware,
@@ -238,6 +238,14 @@ async def teach_state(pack_id: str):
     return teach.state(pack_id) or {"step": "none"}
 
 
+@app.get("/api/teach/{pack_id}/review/{point_id}")
+async def teach_review(pack_id: str, point_id: str):
+    try:
+        return teach.review(pack_id, point_id)
+    except Exception as e:
+        return _teach_err(e)
+
+
 class TeachStart(BaseModel):
     point_id: str | None = None
     restart: bool = False
@@ -335,12 +343,14 @@ class PracticeNext(BaseModel):
     pack_id: str | None = None
     point_id: str | None = None
     wrong_id: str | None = None
+    force_new: bool = False  # 仅显式「换一题」为 true；普通取题复用题库
 
 
 @app.post("/api/practice/next")
 async def practice_next(body: PracticeNext):
     try:
-        return await practice.next_problem(body.mode, body.pack_id, body.point_id, body.wrong_id)
+        return await practice.next_problem(body.mode, body.pack_id, body.point_id, body.wrong_id,
+                                           force_new=body.force_new)
     except Exception as e:
         return _teach_err(e)
 
