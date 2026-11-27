@@ -23,4 +23,8 @@ export const api = {
   put: (p, b) => req('PUT', p, b),
   post: (p, b) => req('POST', p, b),
   del: (p) => req('DELETE', p),
+  beacon: (p, b) => navigator.sendBeacon(
+    BASE + p,
+    new Blob([JSON.stringify(b)], { type: 'application/json' }),
+  ),
 };

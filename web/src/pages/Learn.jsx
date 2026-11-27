@@ -4,6 +4,7 @@ import PackPanel, { PACK_STATUS, PACK_ACTIVE } from '../components/PackPanel.jsx
 import TeachCard from '../components/TeachCard.jsx';
 import SegTabs from '../components/SegTabs.jsx';
 import { api } from '../api.js';
+import { StudyTimerBadge, useStudyTimer } from '../StudyTimer.jsx';
 import { useIsMobile } from '../useIsMobile.js';
 
 const LOGO = `${import.meta.env.BASE_URL}logo.svg`;
@@ -63,6 +64,18 @@ export default function Learn({ homeTick = 0 }) {
   // 手机：讲解/代码区分段页签 + 目录抽屉
   const [mTab, setMTab] = useState('teach');
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const { reportContext } = useStudyTimer();
+
+  // 只上报学习上下文，不上报代码、提问或笔记正文。
+  const timerPoint = review?.point || session?.point || null;
+  const timerPackName = (packsMeta || []).find((p) => p.id === packId)?.name || packId || '';
+  useEffect(() => {
+    reportContext({
+      kind: 'learn', pack_id: packId || '', pack_name: timerPackName,
+      point_id: timerPoint?.id || '', title: timerPoint?.title || '',
+    });
+    return () => reportContext(null);
+  }, [packId, timerPackName, timerPoint?.id, timerPoint?.title, reportContext]);
 
   // 手机回书架：清选书 + 关抽屉 + 复位页签（保留代码区已写内容，与 LOGO home 一致）
   const backToShelf = () => {
@@ -315,8 +328,11 @@ export default function Learn({ homeTick = 0 }) {
               <button type="button" onClick={() => setDrawerOpen(true)} className="btn-ghost shrink-0 text-xs px-3 min-h-[40px]">目录</button>
             </div>
             {/* 讲解 | 代码区 */}
-            <div className="shrink-0 px-3 py-1">
-              <SegTabs tabs={[{ id: 'teach', label: '讲解' }, { id: 'code', label: '代码区' }]} value={mTab} onChange={setMTab} />
+            <div className="shrink-0 px-3 py-1 flex items-center gap-2">
+              <div className="flex-1 min-w-0">
+                <SegTabs tabs={[{ id: 'teach', label: '讲解' }, { id: 'code', label: '代码区' }]} value={mTab} onChange={setMTab} />
+              </div>
+              <StudyTimerBadge />
             </div>
             {/* 内容：两块都挂载，visibility 切换以保留编辑器状态与 Monaco 布局 */}
             <div className="flex-1 min-h-0 relative">
@@ -447,6 +463,7 @@ export default function Learn({ homeTick = 0 }) {
 
       {/* 中：当前微知识点 */}
       <div className="flex-1 min-w-0 paper-card p-5 flex flex-col fade-up" style={{ animationDelay: '0.06s' }}>
+        {packId && <div className="shrink-0 flex justify-end mb-2"><StudyTimerBadge /></div>}
         {packId ? (
           <TeachCard
             packId={packId}

@@ -11,9 +11,9 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
-from . import auth, config, kb, llm, notes, packs, practice, runner, teach
+from . import activity, auth, config, kb, llm, notes, packs, practice, runner, teach
 
-app = FastAPI(title="MyTutor", version="0.8.1")
+app = FastAPI(title="MyTutor", version="0.8.2")
 
 app.add_middleware(
     CORSMiddleware,
@@ -81,6 +81,21 @@ async def change_password(body: PasswordChange):
 @app.get("/api/health")
 async def health():
     return {"ok": True, "app": "MyTutor", "version": app.version}
+
+
+# ── 学习时长（前台活跃区间；多标签重叠由服务端去重）────────────────
+class ActivityHeartbeat(BaseModel):
+    segments: list[dict]
+
+
+@app.post("/api/activity/heartbeat")
+async def activity_heartbeat(body: ActivityHeartbeat):
+    return activity.record(body.segments)
+
+
+@app.get("/api/activity/summary")
+async def activity_summary():
+    return activity.summary()
 
 
 @app.get("/api/settings")

@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import Rich from '../components/Rich.jsx';
 import { api } from '../api.js';
+import { StudyTimerBadge, useStudyTimer } from '../StudyTimer.jsx';
 
 const SUB_LABEL = { point: '知识点', section: '小节总结', module: '模块总结' };
 
@@ -11,7 +12,7 @@ const fmtDate = (iso) => {
   return `${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`;
 };
 
-function NoteEditor({ initial, packs, onSave, onCancel, busy }) {
+function NoteEditor({ initial, packs, onSave, onCancel, busy, onPackChange }) {
   const [title, setTitle] = useState(initial?.title || '');
   const [content, setContent] = useState(initial?.content || '');
   const [packId, setPackId] = useState(initial?.pack_id || '');
@@ -25,7 +26,7 @@ function NoteEditor({ initial, packs, onSave, onCancel, busy }) {
           onChange={(e) => setTitle(e.target.value)}
           autoFocus
         />
-        <select className="field text-xs w-36" value={packId} onChange={(e) => setPackId(e.target.value)}>
+        <select className="field text-xs w-36" value={packId} onChange={(e) => { setPackId(e.target.value); onPackChange(e.target.value); }}>
           <option value="">不关联语言</option>
           {packs.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
         </select>
@@ -59,8 +60,16 @@ export default function Notes() {
   const [fKind, setFKind] = useState('');
   const [q, setQ] = useState('');
   const [editor, setEditor] = useState(null); // null | {id?} 新建或编辑
+  const [editorPack, setEditorPack] = useState('');
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState(null);
+  const { reportContext } = useStudyTimer();
+
+  useEffect(() => {
+    const packId = editor ? editorPack : fPack;
+    reportContext({ kind: 'notes', pack_id: packId, pack_name: packs.find((p) => p.id === packId)?.name || packId });
+    return () => reportContext(null);
+  }, [fPack, packs, editor, editorPack, reportContext]);
 
   const load = async () => {
     try {
@@ -127,7 +136,7 @@ export default function Notes() {
               {notes && ` 共 ${notes.length} 则 · AI ${autoCount} · 手写 ${manualCount}`}
             </p>
           </div>
-          <button className="btn-seal px-4 py-2 text-sm shrink-0" onClick={() => setEditor({})}>
+          <button className="btn-seal px-4 py-2 text-sm shrink-0" onClick={() => { setEditorPack(''); setEditor({}); }}>
             记笔记
           </button>
         </div>
@@ -139,6 +148,7 @@ export default function Notes() {
             busy={busy}
             onSave={save}
             onCancel={() => setEditor(null)}
+            onPackChange={setEditorPack}
           />
         )}
 
@@ -158,6 +168,7 @@ export default function Notes() {
             value={q}
             onChange={(e) => setQ(e.target.value)}
           />
+          <StudyTimerBadge />
         </div>
 
         {err && (
@@ -194,7 +205,7 @@ export default function Notes() {
                 </div>
                 <Rich text={n.content} />
                 <div className="flex items-center gap-2 mt-3 pt-2 border-t border-line/60">
-                  <button className="btn-ghost px-3 py-1 text-[11px]" onClick={() => setEditor({ id: n.id })}>编辑</button>
+                  <button className="btn-ghost px-3 py-1 text-[11px]" onClick={() => { setEditorPack(n.pack_id || ''); setEditor({ id: n.id }); }}>编辑</button>
                   <button className="btn-ghost px-3 py-1 text-[11px] hover:!text-cinnabar" onClick={() => remove(n)}>删除</button>
                 </div>
               </div>

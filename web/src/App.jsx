@@ -4,6 +4,8 @@ import Learn from './pages/Learn.jsx';
 import Practice from './pages/Practice.jsx';
 import Notes from './pages/Notes.jsx';
 import Me from './pages/Me.jsx';
+import Settings from './pages/Settings.jsx';
+import { StudyTimerProvider } from './StudyTimer.jsx';
 import { api } from './api.js';
 import { useIsMobile } from './useIsMobile.js';
 
@@ -107,14 +109,17 @@ export default function App() {
       <Route path="/notes" element={<Notes />} />
       <Route path="/library" element={<Navigate to="/notes" replace />} />
       <Route path="/me" element={<Me />} />
+      <Route path="/settings" element={<Settings />} />
     </Routes>
   );
+
+  const content = <StudyTimerProvider>{routes}</StudyTimerProvider>;
 
   // 手机：底部四页签替代左侧栏；主区域占满剩余高度，页签在正常流里不遮挡内容
   if (isMobile) {
     return (
       <div className="flex flex-col h-full">
-        <main className="flex-1 min-h-0 overflow-hidden">{routes}</main>
+        <main className="flex-1 min-h-0 overflow-hidden">{content}</main>
         <nav className="mobile-tabbar shrink-0 flex items-stretch border-t border-line px-1 pt-1">
           {NAV.map((n) => (
             <NavLink
@@ -189,7 +194,7 @@ export default function App() {
       </aside>
 
       {/* 主区域 */}
-      <main className="flex-1 min-w-0 overflow-hidden">{routes}</main>
+      <main className="flex-1 min-w-0 overflow-hidden">{content}</main>
     </div>
   );
 }

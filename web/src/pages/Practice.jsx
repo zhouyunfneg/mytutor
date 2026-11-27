@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import CodePanel from '../components/CodePanel.jsx';
 import SegTabs from '../components/SegTabs.jsx';
 import { api } from '../api.js';
+import { StudyTimerBadge, useStudyTimer } from '../StudyTimer.jsx';
 import { useIsMobile } from '../useIsMobile.js';
 
 const LOCK_LANG = { python: 'python', javascript: 'javascript', typescript: 'typescript', 'html-css': 'html', c: 'c', cpp: 'cpp', csharp: 'csharp', rust: 'rust', go: 'go' };
@@ -53,6 +54,16 @@ export default function Practice() {
   const [picked, setPicked] = useState(null); // 选择/判断题选中下标
   const isMobile = useIsMobile();
   const [mTab, setMTab] = useState('problem'); // 手机：题目 | 代码区
+  const { reportContext } = useStudyTimer();
+
+  useEffect(() => {
+    reportContext({
+      kind: 'practice', pack_id: cur?.pack_id || '',
+      pack_name: ov?.packs?.find((p) => p.id === cur?.pack_id)?.name || cur?.pack_id || '',
+      point_id: cur?.point?.id || '', title: cur?.point?.title || '',
+    });
+    return () => reportContext(null);
+  }, [cur?.pack_id, cur?.point?.id, cur?.point?.title, ov?.packs, reportContext]);
 
   const refreshOv = useCallback(async () => {
     try {
@@ -433,6 +444,7 @@ export default function Practice() {
           <div className="flex items-center gap-2">
             <span className="text-ink-soft"><Pencil /></span>
             <span className="font-display text-sm font-bold flex-1">练习</span>
+            <StudyTimerBadge />
           </div>
           <div className="flex gap-1.5">{stats}</div>
           <div className="flex gap-1">{modeTabs}</div>
@@ -471,6 +483,7 @@ export default function Practice() {
         <div className="shrink-0 flex items-center gap-2 px-4 pt-3.5 pb-2.5 border-b border-line/60">
           <span className="text-ink-soft"><Pencil /></span>
           <span className="font-display text-sm font-bold flex-1">练习</span>
+          <StudyTimerBadge />
         </div>
         <div className="shrink-0 px-4 pt-3 flex gap-1.5">{stats}</div>
         <div className="shrink-0 px-4 pt-2.5 pb-2 flex gap-1">{modeTabs}</div>
