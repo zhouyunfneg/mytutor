@@ -13,7 +13,7 @@ from pydantic import BaseModel
 
 from . import activity, auth, config, kb, llm, notes, packs, practice, runner, teach
 
-app = FastAPI(title="MyTutor", version="0.8.2")
+app = FastAPI(title="MyTutor", version="0.8.3")
 
 app.add_middleware(
     CORSMiddleware,

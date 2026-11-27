@@ -41,7 +41,7 @@ export default function TeachCard({ packId, session, refresh, code, onLoadStarte
   const [clarifying, setClarifying] = useState(false);
   // 做题/巩固阶段「换一题」：坏题卡壳的出口，独立 changing，不占用提交按钮的 busy
   const [changing, setChanging] = useState(false);
-  // 正文双页签：content=讲解/题目，qa=问老师独立面板；问答不再和题面混排
+  // 正文页签：content=题目/讲解，explain=做题时回看讲解，qa=问老师独立面板
   const [bodyTab, setBodyTab] = useState('content');
   // 选择/判断题：当前选中选项下标（null=未选）；换题/换阶段复位
   const [picked, setPicked] = useState(null);
@@ -167,9 +167,12 @@ export default function TeachCard({ packId, session, refresh, code, onLoadStarte
   const inTask = !review && ['exercise', 'consolidate', 'correcting', 'consolidate_correcting'].includes(s.step);
   // 复习模式只读：不提问、不判题、不推进；讲解 + 做题阶段才可问老师。
   const askable = !review && (s.step === 'explain' || inTask);
-  // 有问答（或正在提问）才出现页签；否则正文直接渲染内容，不加空页签噪音
+  // 有问答（或正在提问）才出现问答页签；否则正文直接渲染内容，不加空页签噪音
   const qaVisible = askable && (qaCount > 0 || !!pendingQ);
-  const tab = qaVisible ? bodyTab : 'content';
+  // 做题诸阶段始终提供「题目 / 回看讲解」；有问答时再追加「问老师」
+  const canReviewExplain = !review && inTask && !!s.explain;
+  const tabsVisible = !review && (inTask || qaVisible);
+  const tab = tabsVisible ? bodyTab : 'content';
 
   // 底栏动作：每个步骤一个主动作，固定在卡片底部，不随正文滚动
   let actions = null;
@@ -309,10 +312,23 @@ export default function TeachCard({ packId, session, refresh, code, onLoadStarte
         <div className={`flex items-center gap-2 ${isMobile ? 'mt-2' : 'mt-3.5'}`}>
           {STEPS.map((label, i) => (
             <div key={label} className="flex items-center gap-2">
-              <div className="flex items-center gap-1.5">
-                <div className={`step-dot ${i === idx ? 'active' : i < idx ? 'done' : ''}`} />
-                <span className={`text-[11px] whitespace-nowrap ${i === idx ? 'text-ink font-medium' : 'text-ink-faint'}`}>{label}</span>
-              </div>
+              {i === 0 && inTask ? (
+                <button
+                  type="button"
+                  onClick={() => setBodyTab('explain')}
+                  className="inline-flex items-center gap-1.5 text-[11px] whitespace-nowrap text-ink-faint hover:text-cinnabar transition-colors"
+                  title="回看本节课讲解，题目和代码都会保留"
+                  aria-label="回看讲解"
+                >
+                  <span className={`step-dot ${i === idx ? 'active' : i < idx ? 'done' : ''}`} />
+                  <span className="border-b border-dashed border-line pb-px">讲解</span>
+                </button>
+              ) : (
+                <div className="flex items-center gap-1.5">
+                  <div className={`step-dot ${i === idx ? 'active' : i < idx ? 'done' : ''}`} />
+                  <span className={`text-[11px] whitespace-nowrap ${i === idx ? 'text-ink font-medium' : 'text-ink-faint'}`}>{label}</span>
+                </div>
+              )}
               {i < STEPS.length - 1 && <div className="w-6 h-px bg-line" />}
             </div>
           ))}
@@ -321,26 +337,37 @@ export default function TeachCard({ packId, session, refresh, code, onLoadStarte
     </div>
   );
 
-  // 正文页签：内容（讲解/题目）与问老师分开，互不混排；有问答才出现。两种布局都钉在滚动区上方
-  const bodyTabs = qaVisible ? (
+  // 正文页签：做题时可在「题目 / 回看讲解」间切换；有问答时再追加独立「问老师」
+  const bodyTabs = tabsVisible ? (
     <div className={`shrink-0 flex items-center gap-6 px-1 ${isMobile ? 'pt-2' : 'pt-3'}`}>
       <button
         type="button"
         onClick={() => setBodyTab('content')}
         className={`pb-2 text-[13px] border-b-2 transition-colors ${tab === 'content' ? 'border-cinnabar text-ink font-medium' : 'border-transparent text-ink-faint hover:text-ink-soft'}`}
       >
-        {s.step === 'explain' ? '讲解' : '题目'}
+        {inTask ? '题目' : '讲解'}
       </button>
-      <button
-        type="button"
-        onClick={() => setBodyTab('qa')}
-        className={`pb-2 text-[13px] border-b-2 inline-flex items-center gap-1.5 transition-colors ${tab === 'qa' ? 'border-cinnabar text-ink font-medium' : 'border-transparent text-ink-faint hover:text-ink-soft'}`}
-      >
-        问老师
-        {qaCount > 0 && (
-          <span className="px-1.5 py-px rounded-full bg-paper-deep border border-line/70 text-[10px] text-ink-soft">{qaCount}</span>
-        )}
-      </button>
+      {canReviewExplain && (
+        <button
+          type="button"
+          onClick={() => setBodyTab('explain')}
+          className={`pb-2 text-[13px] border-b-2 transition-colors ${tab === 'explain' ? 'border-cinnabar text-ink font-medium' : 'border-transparent text-ink-faint hover:text-ink-soft'}`}
+        >
+          回看讲解
+        </button>
+      )}
+      {qaVisible && (
+        <button
+          type="button"
+          onClick={() => setBodyTab('qa')}
+          className={`pb-2 text-[13px] border-b-2 inline-flex items-center gap-1.5 transition-colors ${tab === 'qa' ? 'border-cinnabar text-ink font-medium' : 'border-transparent text-ink-faint hover:text-ink-soft'}`}
+        >
+          问老师
+          {qaCount > 0 && (
+            <span className="px-1.5 py-px rounded-full bg-paper-deep border border-line/70 text-[10px] text-ink-soft">{qaCount}</span>
+          )}
+        </button>
+      )}
     </div>
   ) : null;
 
@@ -408,6 +435,22 @@ export default function TeachCard({ packId, session, refresh, code, onLoadStarte
 
       {tab === 'content' && !review && s.step === 'explain' && (
         <>
+          <Rich text={s.explain} onLoadCode={onLoadStarter} />
+          <Diagram spec={s.diagram} />
+        </>
+      )}
+
+      {tab === 'explain' && canReviewExplain && (
+        <>
+          <div className="flex items-center justify-between gap-3 rounded-xl border border-pine/30 bg-pine/5 px-4 py-3">
+            <div className="min-w-0">
+              <div className="text-[11px] tracking-widest text-pine-deep mb-1">回看讲解 · 不调用 AI</div>
+              <p className="text-[13px] leading-6 text-ink-soft">题目、选项和代码都保留，看完后返回题目继续。</p>
+            </div>
+            <button type="button" className="btn-ghost shrink-0 px-3 py-2 text-xs" onClick={() => setBodyTab('content')}>
+              返回题目
+            </button>
+          </div>
           <Rich text={s.explain} onLoadCode={onLoadStarter} />
           <Diagram spec={s.diagram} />
         </>
